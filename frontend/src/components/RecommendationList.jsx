@@ -17,7 +17,7 @@ export default function RecommendationList({ data }) {
   if (!data) return null;
 
   const { emotion, conversationalMessage, recommendations, transcript } = data;
-  const emotionKey = emotion?.primaryEmotion?.toUpperCase();
+  const emotionKey = emotion?.primary_emotion?.toUpperCase();
   const emoji = EMOTION_EMOJIS[emotionKey] || "🎵";
 
   return (
@@ -37,22 +37,22 @@ export default function RecommendationList({ data }) {
           <div>
             <p className="text-xs text-gray-400 uppercase tracking-wide">Detected Emotion</p>
             <p className="text-lg font-bold text-white">
-              {emotion.primaryEmotion}
+              {emotion.primary_emotion}
               <span className="ml-2 text-sm font-normal text-gray-400">
                 (intensity: {Math.round((emotion.intensity ?? 0) * 100)}%)
               </span>
             </p>
-            {emotion.secondaryEmotions?.length > 0 && (
+            {emotion.secondary_emotions?.length > 0 && (
               <p className="text-xs text-gray-400 mt-0.5">
-                Also: {emotion.secondaryEmotions.join(", ")}
+                Also: {emotion.secondary_emotions.join(", ")}
               </p>
             )}
           </div>
 
           {/* Mood keywords */}
-          {emotion.moodKeywords?.length > 0 && (
+          {emotion.mood_keywords?.length > 0 && (
             <div className="flex flex-wrap gap-1 ml-auto">
-              {emotion.moodKeywords.map((kw) => (
+              {emotion.mood_keywords.map((kw) => (
                 <span key={kw} className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
                   {kw}
                 </span>

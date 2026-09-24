@@ -44,9 +44,16 @@ spring:
 
       chat:
         options:
-          model: llama3-70b-8192            # Stable Groq model; alternatives: llama-3.3-70b-versatile, gemma2-9b-it
+          # llama3-70b-8192 and llama-3.3-70b-versatile were both since removed from
+          # this account's Groq catalog (confirmed via GET /openai/v1/models) — verify
+          # against that endpoint again if this model ever 404s as model_not_found.
+          # gpt-oss is a reasoning model: it spends completion tokens on hidden
+          # "reasoning" before the JSON content, so max-tokens must cover both, and
+          # reasoning-effort=low keeps that hidden spend small and predictable.
+          model: openai/gpt-oss-120b
           temperature: 0.7
-          max-tokens: 2048
+          max-tokens: 4096
+          reasoning-effort: low
 
       audio:
         transcription:
@@ -59,6 +66,7 @@ spring:
 app:
   recommendation:
     candidate-pool-size: 30         # How many tracks to retrieve before reranking
+    rerank-pool-size: 15            # Shortlist size after the lightweight reranker, before the LLM
     top-n-results: 10               # Final recommendations count
     fallback-to-keyword: true       # Use keyword fallback if LLM fails
 

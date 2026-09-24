@@ -12,6 +12,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(
                     "http://localhost:3000",   // React dev server
+                    "http://localhost:3001",   // React dev server (alt port)
                     "http://localhost:5173"    // Vite dev server (if used)
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
