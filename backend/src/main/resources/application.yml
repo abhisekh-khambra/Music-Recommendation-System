@@ -1,0 +1,72 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: music-recommendation
+
+  # ── MySQL DataSource ─────────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://localhost:3306/music_rec_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:5503}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ── JPA / Hibernate ─────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: update            # auto-creates/updates tables on startup
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    open-in-view: false
+    defer-datasource-initialization: true  # run DataInitializer AFTER Hibernate creates tables
+
+  # ── SQL Init (data.sql auto-seeding handled by DataInitializer) ──
+  sql:
+    init:
+      mode: never
+
+  # ── Spring AI → Groq (OpenAI-compatible endpoint) ────────────
+  ai:
+    openai:
+      # Set GROQ_API_KEY as an environment variable before running the backend
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
+
+      chat:
+        options:
+          model: llama3-70b-8192            # Stable Groq model; alternatives: llama-3.3-70b-versatile, gemma2-9b-it
+          temperature: 0.7
+          max-tokens: 2048
+
+      audio:
+        transcription:
+          base-url: https://api.groq.com/openai
+          api-key: ${GROQ_API_KEY}
+          options:
+            model: whisper-large-v3        # Groq's Whisper model
+
+# ── Application-level Settings ──────────────────────────────────
+app:
+  recommendation:
+    candidate-pool-size: 30         # How many tracks to retrieve before reranking
+    top-n-results: 10               # Final recommendations count
+    fallback-to-keyword: true       # Use keyword fallback if LLM fails
+
+# ── Logging ─────────────────────────────────────────────────────
+logging:
+  level:
+    com.musicrec: DEBUG
+    org.springframework.ai: INFO
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
