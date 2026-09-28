@@ -24,6 +24,7 @@ public class TrackDTO {
     private String primaryEmotion;
     private List<String> secondaryEmotions;
     private List<String> moodTags;
+    private String raga;
     private String albumArtUrl;
     private String previewUrl;
     private Integer durationMs;
@@ -46,6 +47,7 @@ public class TrackDTO {
         dto.setPrimaryEmotion(track.getPrimaryEmotion());
         dto.setSecondaryEmotions(track.getSecondaryEmotions());
         dto.setMoodTags(track.getMoodTags());
+        dto.setRaga(track.getRaga());
         dto.setAlbumArtUrl(track.getAlbumArtUrl());
         dto.setPreviewUrl(track.getPreviewUrl());
         dto.setDurationMs(track.getDurationMs());

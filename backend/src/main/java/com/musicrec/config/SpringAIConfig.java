@@ -30,6 +30,14 @@ public class SpringAIConfig {
             You MUST respond with ONLY a valid JSON object — no markdown fences, no extra text.
             """;
 
+    private static final String CONVERSATION_SYSTEM_PROMPT = """
+            You are an expert conversation-transcript analyst. You segment a transcribed
+            two-person spoken conversation into individual speaker turns, in original order,
+            and label each turn's role. You never diagnose, and you never add clinical or
+            medical claims — you only segment and label who is speaking.
+            You MUST respond with ONLY a valid JSON object — no markdown fences, no extra text.
+            """;
+
     /** Used by EmotionAnalysisService */
     @Bean("emotionChatClient")
     @Primary
@@ -44,6 +52,14 @@ public class SpringAIConfig {
     public ChatClient rerankerChatClient(ChatClient.Builder builder) {
         return builder
                 .defaultSystem(MUSIC_RERANK_SYSTEM_PROMPT)
+                .build();
+    }
+
+    /** Used by ConversationAnalysisService for speaker turn segmentation */
+    @Bean("conversationChatClient")
+    public ChatClient conversationChatClient(ChatClient.Builder builder) {
+        return builder
+                .defaultSystem(CONVERSATION_SYSTEM_PROMPT)
                 .build();
     }
 }

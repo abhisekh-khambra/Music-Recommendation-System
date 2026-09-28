@@ -53,6 +53,9 @@ public class Track {
     @Column(name = "mood_tags", columnDefinition = "JSON")
     private List<String> moodTags;
 
+    /** Hindustani classical raga this track is set in, e.g. "Bhairavi", "Yaman". Null if not applicable. */
+    private String raga;
+
     @Column(name = "spotify_id")
     private String spotifyId;
 

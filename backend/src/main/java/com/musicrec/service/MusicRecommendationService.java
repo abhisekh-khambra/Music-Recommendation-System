@@ -7,6 +7,7 @@ import com.musicrec.dto.EmotionMetadata;
 import com.musicrec.dto.EvidenceRecord;
 import com.musicrec.dto.TrackDTO;
 import com.musicrec.entity.Track;
+import com.musicrec.reference.RagaRasaCatalog;
 import com.musicrec.repository.TrackRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -63,12 +64,18 @@ public class MusicRecommendationService {
     private static final Map<String, Double> SOURCE_WEIGHTS = Map.of(
             "emotion_lang",       1.5,   // exact primary emotion + language match
             "emotion_any",        1.2,   // exact primary emotion match
+            "raga_match",         1.3,   // raga traditionally associated with the detected emotion (rasa theory)
             "valence_energy",     0.9,   // audio-feature range match
             "semantic_dense",     0.7,   // fuzzy TF-IDF text similarity
             "catalogue_fallback", 1.0
     );
     private static final double SECONDARY_EMOTION_WEIGHT = 1.0;
     private static final double KEYWORD_TAG_WEIGHT        = 0.8;
+
+    // Highest weight of all — the specific Raga chosen by RagaSelectionService for the
+    // conversation pipeline. Raga is meant to be the central driver of that pipeline's
+    // recommendations, so it must outrank every other retrieval signal.
+    private static final double RAGA_PRIMARY_WEIGHT       = 2.0;
 
     @Value("${app.recommendation.candidate-pool-size:30}")
     private int candidatePoolSize;
@@ -136,8 +143,18 @@ public class MusicRecommendationService {
     // ── Public API ────────────────────────────────────────────────
 
     public RankingResult recommend(EmotionMetadata emotion) {
+        return recommend(emotion, null);
+    }
+
+    /**
+     * Same pipeline as {@link #recommend(EmotionMetadata)}, but with a specific Raga
+     * (from RagaSelectionService) added as the highest-weighted retrieval source —
+     * used by the conversation-based pipeline, where Raga is the central selection
+     * driving which songs are even considered, not just one signal among many.
+     */
+    public RankingResult recommend(EmotionMetadata emotion, String primaryRaga) {
         // ── STEP 1: RETRIEVE ────────────────────────────────────────
-        Map<String, List<Track>> sources = retrieve(emotion);
+        Map<String, List<Track>> sources = retrieve(emotion, primaryRaga);
 
         long totalCandidates = sources.values().stream().mapToLong(List::size).sum();
         log.info("RETRIEVE: {} candidates across {} sources for emotion={}",
@@ -191,11 +208,18 @@ public class MusicRecommendationService {
      * Each query is a separate "source" for RRF.
      * Returns a map of sourceName → ranked track list.
      */
-    private Map<String, List<Track>> retrieve(EmotionMetadata emotion) {
+    private Map<String, List<Track>> retrieve(EmotionMetadata emotion, String primaryRaga) {
         Map<String, List<Track>> sources = new LinkedHashMap<>();
 
         String primaryEmotion = emotion.getPrimaryEmotionSafe();
         String language       = emotion.getLanguageSafe();
+
+        // Source 0: the specific Raga chosen by RagaSelectionService (conversation pipeline
+        // only) — highest-weighted source, since Raga is meant to drive selection here,
+        // not just filter it.
+        if (primaryRaga != null && !primaryRaga.isBlank()) {
+            sources.put("raga_primary", trackRepository.findByRagaInOrderByPopularityDesc(List.of(primaryRaga)));
+        }
 
         // Source 1: primary emotion + language match (strongest signal)
         sources.put("emotion_lang",
@@ -205,6 +229,18 @@ public class MusicRecommendationService {
         // Source 2: primary emotion, any language
         sources.put("emotion_any",
                 trackRepository.findByPrimaryEmotionIgnoreCaseOrderByPopularityDesc(primaryEmotion));
+
+        // Source: ragas traditionally associated (via rasa theory) with the user's
+        // primary + expanded emotions — e.g. STRESS/ANGER → Ahir Bhairav, Bhairav;
+        // SADNESS/MELANCHOLY → Bhairavi, Darbari Kanada. See RagaRasaCatalog.
+        Set<String> emotionsForRaga = new LinkedHashSet<>();
+        emotionsForRaga.add(primaryEmotion);
+        if (emotion.getSecondaryEmotions() != null) emotionsForRaga.addAll(emotion.getSecondaryEmotions());
+        if (emotion.getExpandedEmotions() != null) emotionsForRaga.addAll(emotion.getExpandedEmotions());
+        List<String> candidateRagas = RagaRasaCatalog.ragasForEmotions(emotionsForRaga);
+        if (!candidateRagas.isEmpty()) {
+            sources.put("raga_match", trackRepository.findByRagaInOrderByPopularityDesc(candidateRagas));
+        }
 
         // Sources 3+: one source per secondary emotion
         if (emotion.getSecondaryEmotions() != null) {
@@ -287,6 +323,7 @@ public class MusicRecommendationService {
 
     /** Per-source RRF weight — exact/high-precision sources outweigh fuzzy ones. */
     private double sourceWeight(String sourceName) {
+        if (sourceName.equals("raga_primary")) return RAGA_PRIMARY_WEIGHT;
         Double explicit = SOURCE_WEIGHTS.get(sourceName);
         if (explicit != null) return explicit;
         if (sourceName.startsWith("secondary_")) return SECONDARY_EMOTION_WEIGHT;

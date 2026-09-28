@@ -65,26 +65,81 @@ conversational message, returned to the frontend
 
 Everything in stages 2–5 is deterministic application code — only stages 1 and 6 call the LLM, and stage 6 is explicitly constrained to the evidence stage 4 already verified. This means recommendations can't drift into fabricated claims about a track ("this reminds you of your childhood") that aren't backed by an actual database fact.
 
+## Conversation-based, Raga-centric pipeline
+
+A second, additive pipeline (`POST /api/v1/conversation/analyze`) takes a **recorded conversation audio file between a Health Consultant and a Patient** and puts **Raga selection at the center** of the recommendation, rather than treating Raga as one more filter:
+
+```
+Conversation audio (Health Consultant + Patient)
+   │
+   ▼
+[1] SPEECH-TO-TEXT (Groq Whisper)                 SpeechToTextService (reused, unchanged)
+   │
+   ▼
+[2] SPEAKER TURN SEGMENTATION (Groq LLM)           ConversationAnalysisService.segment()
+   → splits the transcript into turns and labels each HEALTH_CONSULTANT / PATIENT
+     by conversational role (who asks vs. who describes their own feelings) —
+     see the "Known limitations" note below on why this is text-based, not audio-based
+   │
+   ▼
+[3] PATIENT EMOTION ANALYSIS (Groq LLM)            EmotionAnalysisService (reused, unchanged)
+   → runs ONLY on the Patient's isolated turns
+   │
+   ▼
+[4] NON-DIAGNOSTIC ANALYSIS PANEL (pure code)      ConversationAnalysisService.buildAnalysis()
+   → sentiment, stress/anxiety/sadness/relaxation cue flags, and a template-built
+     context sentence ("Conversation indicates elevated stress-related emotional
+     cues") — deliberately code-generated, never LLM-phrased, so it can't drift
+     into diagnostic language ("the patient has anxiety disorder")
+   │
+   ▼
+[5] RAGA SELECTION (pure code)                     RagaSelectionService
+   → ranks candidate ragas from the static RagaRasaCatalog against the detected
+     state, deprioritizes "intensifying" ragas (e.g. Malkauns) when intensity is
+     high and the state is acute distress, and only finalizes a raga that has at
+     least one catalogued track (falls back with a warning otherwise) — every
+     field returned (rasa, description, reason) traces back to that static table
+   │
+   ▼
+[6] RAGA-BASED RETRIEVE → FUSE → EVIDENCE → RERANK → SELECT
+   MusicRecommendationService.recommend(emotion, raga) (reused, extended)
+   → identical pipeline to the text/voice flow, plus one extra, highest-weighted
+     retrieval source: tracks tagged with the exact selected raga
+   │
+   ▼
+Transcript with speaker turns + non-diagnostic analysis + selected Raga & reason
++ ranked top-10 songs + per-track explanations, returned to the frontend
+```
+
+This reuses `EmotionAnalysisService`, `EvidenceGroundingService`, `LightweightRerankerService`, and `MusicRecommendationService` as-is — the only new LLM call is turn segmentation (stage 2); everything else is either an existing call reused on the isolated patient text, or new pure code.
+
+**Known limitation — speaker identification is text-based, not audio-based.** Groq's Whisper endpoint returns plain text, not per-speaker audio segments, and there's no audio diarization model (e.g. `pyannote.audio`) in this Spring Boot stack. Turns are segmented and labeled from conversational role cues instead (who asks questions vs. who describes their own feelings), which is accurate for a clearly-structured consultant/patient dialogue but can mislabel an ambiguous or overlapping exchange. Adding real audio diarization would mean a separate Python service or a hosted diarization API — a real infra decision, intentionally scoped out here per the assignment's own guidance to keep the immediate priority a stable recorded-file pipeline rather than a more complex/fragile one.
+
+**Known limitation — small raga catalogue.** The seed data ships ~22 raga-tagged tracks (about one per raga), so an exact-raga match alone rarely fills 10 slots; the rest of the ranked list comes from the emotion+metadata sources the raga-based flow shares with the text/voice flow. Raga still drives the ranking (it's the single highest-weighted retrieval source and shows up in the evidence/explanation for any track sharing it), but "10 songs of the exact same raga" isn't realistic until more raga-tagged tracks are added to `data.sql`.
+
 ## Project structure
 
 ```
 backend/
   src/main/java/com/musicrec/
-    controller/    REST endpoints (RecommendationController, HealthController)
-    service/       Pipeline stages — see architecture above
-    dto/           Request/response/emotion/evidence data shapes
+    controller/    REST endpoints (RecommendationController, ConversationController, HealthController)
+    service/       Pipeline stages — see architecture above, plus ConversationAnalysisService & RagaSelectionService
+    dto/           Request/response/emotion/evidence/conversation data shapes
     entity/        JPA entities (Track, User, ChatHistory)
     repository/    Spring Data JPA repositories
+    reference/     RagaRasaCatalog — static raga ↔ rasa/emotion reference table
     config/        Spring AI (Groq) client config, CORS, DB seeding
     exception/     Global exception handler
-  src/main/resources/application.yml   All runtime config (DB, Groq model, pool sizes)
+  src/test/java/com/musicrec/service/   Unit tests for the pure-code Raga selection & analysis logic
+  src/main/resources/application.yml   All runtime config (DB, Groq model, pool sizes, upload limits)
 
 frontend/
-  src/components/  ChatInterface, TextInput, VoiceInput, RecommendationList, TrackCard
+  src/components/  ChatInterface, TextInput, VoiceInput, ConversationInput, RecommendationList,
+                    ConversationResult, TrackCard
   src/services/api.js   Backend API client
 
 database/
-  schema.sql       MySQL schema + ~50 seed tracks (English + Hindi/Bollywood)
+  schema.sql       MySQL schema + ~50 seed tracks (English + Hindi/Bollywood + Hindustani classical/raga)
 ```
 
 ## Running it
@@ -96,7 +151,10 @@ database/
 #    or run database/schema.sql manually against MySQL if you want the seed tracks.
 
 # 2. Backend
-export GROQ_API_KEY=your_key_here
+# Create backend/.env (gitignored, never committed) with:
+#   GROQ_API_KEY=your_key_here
+# Spring Boot loads it automatically on startup — no need to export it
+# in your shell each session. (A real OS env var, if set, still wins.)
 cd backend
 mvn spring-boot:run          # or use start-backend.bat on Windows
 # → http://localhost:8080
@@ -110,6 +168,8 @@ npm start                    # or use start-frontend.bat
 
 DB connection defaults to `jdbc:mysql://localhost:3306/music_rec_db` (root, configurable via `DB_USERNAME`/`DB_PASSWORD` env vars). The Groq chat model and pool sizes (`candidate-pool-size`, `rerank-pool-size`, `top-n-results`) are all in `backend/src/main/resources/application.yml`.
 
+**Testing:** `cd backend && mvn test` runs the unit tests for the pure-code Raga selection and non-diagnostic analysis logic (no DB or Groq key needed — they mock `TrackRepository`/`ChatClient`). Exercising the full pipelines end-to-end (LLM calls, DB retrieval) needs a running MySQL instance and a valid `GROQ_API_KEY` and is easiest to do manually — see the API table below for `curl`/Postman-style requests.
+
 > **Note on Groq models:** Groq's available model catalog changes over time and models get deprecated. If you see `model_not_found` in the logs, run `GET https://api.groq.com/openai/v1/models` with your key to see what's currently available and update `spring.ai.openai.chat.options.model` in `application.yml`. If you land on a reasoning-style model (e.g. an `openai/gpt-oss-*` family model), keep `reasoning-effort: low` set — those models spend part of their token budget on hidden reasoning before the answer, and without a low effort setting they can burn through `max-tokens` before finishing the required JSON.
 
 ## API
@@ -118,7 +178,8 @@ DB connection defaults to `jdbc:mysql://localhost:3306/music_rec_db` (root, conf
 |---|---|---|
 | POST | `/api/v1/recommend/text` | `{ "message": "...", "sessionId"?: "..." }` → emotion + ranked tracks + explanations |
 | POST | `/api/v1/recommend/voice` | multipart `audio` file → transcribed via Groq Whisper, then same pipeline |
-| GET | `/api/v1/history/{sessionId}` | past chat turns for a session |
+| POST | `/api/v1/conversation/analyze` | multipart `audio` file (Health Consultant + Patient conversation, max 25MB) → transcript + speaker turns + non-diagnostic patient analysis + selected Raga + top-10 Raga-based recommendations |
+| GET | `/api/v1/history/{sessionId}` | past chat turns for a session (includes `selectedRaga`/`speakerTurns` for conversation-type entries) |
 | GET | `/api/v1/tracks?emotion=&language=` | browse the full track catalogue, optionally filtered |
 | GET | `/api/v1/health` | health check |
 

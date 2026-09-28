@@ -2,9 +2,16 @@ import React, { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import TextInput from "./components/TextInput";
 import VoiceInput from "./components/VoiceInput";
+import ConversationInput from "./components/ConversationInput";
 import RecommendationList from "./components/RecommendationList";
+import ConversationResult from "./components/ConversationResult";
 import ChatInterface from "./components/ChatInterface";
-import { getTextRecommendation, getVoiceRecommendation, getChatHistory } from "./services/api";
+import {
+  getTextRecommendation,
+  getVoiceRecommendation,
+  getConversationAnalysis,
+  getChatHistory,
+} from "./services/api";
 
 const SESSION_KEY = "moodtunes_session_id";
 
@@ -19,10 +26,11 @@ function getOrCreateSession() {
 
 export default function App() {
   const [sessionId] = useState(getOrCreateSession);
-  const [tab, setTab] = useState("text"); // "text" | "voice"
+  const [tab, setTab] = useState("text"); // "text" | "voice" | "conversation"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [conversationResult, setConversationResult] = useState(null);
   const [history, setHistory] = useState([]);
 
   // Refresh chat history after every successful recommendation
@@ -67,6 +75,20 @@ export default function App() {
     }
   }, [sessionId, refreshHistory]);
 
+  const handleConversationAudioReady = useCallback(async (audioFile) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getConversationAnalysis(audioFile, sessionId);
+      setConversationResult(data);
+      await refreshHistory();
+    } catch (err) {
+      setError(err.message || "Conversation processing failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, refreshHistory]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-brand-900/20 font-sans">
       {/* ── Header ───────────────────────────────────────────── */}
@@ -98,13 +120,14 @@ export default function App() {
             {/* Tab switcher */}
             <div className="flex gap-1 bg-gray-700/50 rounded-xl p-1 mb-4">
               {[
-                { id: "text",  label: "Text Input",  icon: "⌨️" },
-                { id: "voice", label: "Voice Input", icon: "🎙️" },
+                { id: "text",         label: "Text Input",   icon: "⌨️" },
+                { id: "voice",        label: "Voice Input",  icon: "🎙️" },
+                { id: "conversation", label: "Conversation", icon: "🩺" },
               ].map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150 flex items-center justify-center gap-1.5
+                  className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-150 flex items-center justify-center gap-1.5
                     ${tab === t.id
                       ? "bg-brand-600 text-white shadow"
                       : "text-gray-400 hover:text-white"
@@ -116,10 +139,14 @@ export default function App() {
             </div>
 
             {/* Input component */}
-            {tab === "text" ? (
+            {tab === "text" && (
               <TextInput onSubmit={handleTextSubmit} isLoading={loading} />
-            ) : (
+            )}
+            {tab === "voice" && (
               <VoiceInput onAudioReady={handleAudioReady} isLoading={loading} />
+            )}
+            {tab === "conversation" && (
+              <ConversationInput onAudioReady={handleConversationAudioReady} isLoading={loading} />
             )}
 
             {/* Error display */}
@@ -150,6 +177,15 @@ export default function App() {
               <li>Groq reranks them and selects the TOP 10 best matches</li>
               <li>You get a personalised playlist with explanations</li>
             </ol>
+            {tab === "conversation" && (
+              <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-700">
+                <span className="text-gray-400 font-medium">Conversation mode: </span>
+                Whisper transcribes the audio, an LLM segments it into Health-Consultant / Patient
+                turns (by conversational role, not voice — true audio diarization isn't wired in),
+                the Patient's turns drive a non-diagnostic mood/sentiment read, a Raga is selected
+                from that state (rasa-theory reference table), and songs are ranked by Raga + emotion + metadata.
+              </p>
+            )}
           </div>
         </section>
 
@@ -168,7 +204,23 @@ export default function App() {
             </div>
           )}
 
-          {!loading && !result && (
+          {!loading && tab === "conversation" && !conversationResult && (
+            <div className="card flex flex-col items-center justify-center h-64 gap-4 text-gray-500">
+              <span className="text-5xl">🩺</span>
+              <div className="text-center">
+                <p className="font-medium text-gray-400">Raga-based conversation analysis</p>
+                <p className="text-sm mt-1">
+                  Upload or record a Health Consultant + Patient conversation to get started
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!loading && tab === "conversation" && conversationResult && (
+            <ConversationResult data={conversationResult} />
+          )}
+
+          {!loading && tab !== "conversation" && !result && (
             <div className="card flex flex-col items-center justify-center h-64 gap-4 text-gray-500">
               <span className="text-5xl">🎧</span>
               <div className="text-center">
@@ -180,7 +232,7 @@ export default function App() {
             </div>
           )}
 
-          {!loading && result && (
+          {!loading && tab !== "conversation" && result && (
             <RecommendationList data={result} />
           )}
         </section>

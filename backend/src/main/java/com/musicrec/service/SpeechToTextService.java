@@ -72,6 +72,9 @@ public class SpeechToTextService {
             AudioTranscriptionResponse response = transcriptionModel.call(prompt);
 
             String transcript = response.getResult().getOutput();
+            if (transcript != null) {
+                transcript = transcript.trim();
+            }
             log.info("Transcription complete: [{}]", transcript);
             return transcript;
 

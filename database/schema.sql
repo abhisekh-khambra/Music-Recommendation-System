@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     primary_emotion   VARCHAR(50)    NOT NULL,
     secondary_emotions JSON          COMMENT 'Array of secondary emotion strings',
     mood_tags         JSON          COMMENT 'Array of descriptive mood keywords',
+    raga              VARCHAR(100)   COMMENT 'Hindustani classical raga this track is set in, e.g. Bhairavi (see RagaRasaCatalog)',
     spotify_id        VARCHAR(100),
     preview_url       VARCHAR(500),
     album_art_url     VARCHAR(500),
@@ -56,8 +57,14 @@ CREATE TABLE IF NOT EXISTS chat_history (
     emotion_intensity     DECIMAL(3,2),
     assistant_response    TEXT,
     recommended_track_ids JSON                           COMMENT 'Array of recommended track ids',
-    input_type            ENUM('text','voice')           DEFAULT 'text',
+    -- VARCHAR, not a native ENUM: Hibernate's ddl-auto=update only ADDS columns, it
+    -- never widens an existing column's constraint list, so a native ENUM here would
+    -- silently reject any future new InputType value added on the Java side (this bit
+    -- us for 'conversation' during development).
+    input_type             VARCHAR(20)                    NOT NULL DEFAULT 'text',
     language              VARCHAR(50)                    DEFAULT 'English',
+    selected_raga         VARCHAR(100)                   COMMENT 'Raga selected by the conversation pipeline, if any',
+    speaker_turns         JSON                           COMMENT 'Array of "Health Consultant: ..." / "Patient: ..." labeled turns, conversation pipeline only',
     created_at            TIMESTAMP                      DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

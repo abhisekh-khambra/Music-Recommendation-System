@@ -50,6 +50,15 @@ public class ChatHistory {
 
     private String language;
 
+    /** Raga selected for this turn — populated by the conversation pipeline, null otherwise. */
+    @Column(name = "selected_raga")
+    private String selectedRaga;
+
+    /** "Health Consultant: ..." / "Patient: ..." labeled turns — populated by the conversation pipeline. */
+    @Convert(converter = com.musicrec.util.StringListConverter.class)
+    @Column(name = "speaker_turns", columnDefinition = "JSON")
+    private List<String> speakerTurns;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -59,6 +68,6 @@ public class ChatHistory {
     }
 
     public enum InputType {
-        text, voice
+        text, voice, conversation
     }
 }

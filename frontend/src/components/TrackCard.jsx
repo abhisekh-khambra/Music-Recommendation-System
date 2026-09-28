@@ -183,7 +183,15 @@ export default function TrackCard({ track, rank }) {
       {/* Error notice */}
       {status === "error" && (
         <p className="mt-2 text-xs text-red-400 px-1" onClick={(e) => e.stopPropagation()}>
-          Preview unavailable — try searching on YouTube instead.
+          Preview unavailable —{" "}
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-red-300"
+          >
+            search on YouTube instead
+          </a>.
         </p>
       )}
 

@@ -58,6 +58,26 @@ export const getVoiceRecommendation = (audioBlob, sessionId) => {
 };
 
 /**
+ * Send a recorded two-speaker conversation audio file (Health Consultant + Patient)
+ * and receive the full Raga-centric pipeline result: transcript, speaker turns,
+ * non-diagnostic patient analysis, selected Raga + reason, and top-10 recommendations.
+ * @param {Blob|File} audioFile
+ * @param {string} sessionId
+ * @returns {Promise<ConversationRecommendationResponse>}
+ */
+export const getConversationAnalysis = (audioFile, sessionId) => {
+  const form = new FormData();
+  form.append("audio", audioFile, audioFile.name || "conversation.webm");
+  if (sessionId) form.append("sessionId", sessionId);
+  return client
+    .post("/conversation/analyze", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000, // conversation audio can take longer to transcribe + analyze
+    })
+    .then((r) => r.data);
+};
+
+/**
  * Fetch chat history for a given session.
  * @param {string} sessionId
  * @returns {Promise<ChatHistory[]>}

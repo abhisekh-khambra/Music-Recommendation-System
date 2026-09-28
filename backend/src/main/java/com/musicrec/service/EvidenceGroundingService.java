@@ -3,6 +3,7 @@ package com.musicrec.service;
 import com.musicrec.dto.EmotionMetadata;
 import com.musicrec.dto.EvidenceRecord;
 import com.musicrec.entity.Track;
+import com.musicrec.reference.RagaRasaCatalog;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -78,6 +79,22 @@ public class EvidenceGroundingService {
                             "Mood tag '" + tag + "' matches the user's mood keywords", 0.6));
                 }
             }
+        }
+
+        if (t.getRaga() != null) {
+            RagaRasaCatalog.profileFor(t.getRaga()).ifPresent(profile -> {
+                if (profile.emotions().contains(primary.toUpperCase())) {
+                    facts.add(new EvidenceRecord(t.getId(), "raga_rasa_match",
+                            "Set in Raga " + profile.raga() + " (" + profile.rasa()
+                                    + "), traditionally associated with the user's " + primary.toLowerCase() + " state",
+                            0.9));
+                } else if (expandedEmotions.stream().anyMatch(e -> profile.emotions().contains(e))) {
+                    facts.add(new EvidenceRecord(t.getId(), "raga_rasa_related",
+                            "Set in Raga " + profile.raga() + " (" + profile.rasa()
+                                    + "), traditionally used for emotionally related states",
+                            0.5));
+                }
+            });
         }
 
         double[] range = valenceEnergyRange(primary);

@@ -56,6 +56,9 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
                                        @Param("minEnergy") double minEnergy,
                                        @Param("maxEnergy") double maxEnergy);
 
+    /** Raga-based retrieval: tracks set in any of the given ragas (see RagaRasaCatalog) */
+    List<Track> findByRagaInOrderByPopularityDesc(List<String> ragas);
+
     /** Fetch by IDs preserving order (used after reranking) */
     @Query("SELECT t FROM Track t WHERE t.id IN :ids ORDER BY t.popularity DESC")
     List<Track> findAllByIdIn(@Param("ids") List<Long> ids);
