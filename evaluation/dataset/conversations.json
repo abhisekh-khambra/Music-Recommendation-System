@@ -1,0 +1,260 @@
+{
+  "name": "health-consultant-patient-v1",
+  "description": "Scripted Health Consultant / Patient conversations for evaluating the conversation pipeline. Each Patient line is written to express the emotion in its 'emotion' label, so emotion ground truth is known by construction. The labels were written by the developer and should be checked by a second annotator before results are published.",
+  "cases": [
+    {
+      "id": "C01",
+      "title": "Meeting example - feeling good, sleeping well",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "I am feeling quite good today.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been recently?"},
+        {"role": "PATIENT", "text": "I slept very well last night. I woke up feeling fresh and rested.", "emotion": "RELAXATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "Have you been worried about anything lately?"},
+        {"role": "PATIENT", "text": "Not really. Things have been going quite smoothly and my mind feels settled.", "emotion": "CALM"},
+        {"role": "HEALTH_CONSULTANT", "text": "What have you been doing in your free time?"},
+        {"role": "PATIENT", "text": "I have been listening to music and going for slow evening walks, it is very relaxing.", "emotion": "RELAXATION"}
+      ]
+    },
+    {
+      "id": "C02",
+      "title": "Grief after a loss",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Honestly I feel very sad. I cry most evenings since my grandmother passed away.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Not good. I lie awake feeling empty and heartbroken.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Is there anything that has been on your mind?"},
+        {"role": "PATIENT", "text": "I keep thinking about the summers we spent together in her village when I was a child.", "emotion": "NOSTALGIA"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do in your free time?"},
+        {"role": "PATIENT", "text": "Nothing really. I don't feel like doing anything, everything feels sorrowful.", "emotion": "SADNESS"}
+      ]
+    },
+    {
+      "id": "C03",
+      "title": "Work deadline stress",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Very stressed. I have three project deadlines this week and my manager keeps adding more work.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "I sleep four hours at most because I am working late, I feel completely overloaded.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Are you worried about anything specific?"},
+        {"role": "PATIENT", "text": "I keep worrying that I will be fired if I miss even one deadline, my heart races thinking about it.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "Do you get any free time?"},
+        {"role": "PATIENT", "text": "No free time at all, there is too much pressure and too much on my plate.", "emotion": "STRESS"}
+      ]
+    },
+    {
+      "id": "C04",
+      "title": "Exam anxiety",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Nervous. My exams start next week and I feel anxious all the time.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "I wake up at night with my heart pounding, scared that I will forget everything.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "What is worrying you the most?"},
+        {"role": "PATIENT", "text": "There is so much syllabus left and so little time, I am under a lot of pressure.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Do you do anything to relax?"},
+        {"role": "PATIENT", "text": "I try, but I keep panicking about what happens if I fail.", "emotion": "ANXIETY"}
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "Sadness with some hope",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "I have been feeling low and sad since my breakup last month.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Some nights I just cry myself to sleep, it still hurts a lot.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Has anything helped?"},
+        {"role": "PATIENT", "text": "Talking to my sister calms me down, I feel peaceful after our calls.", "emotion": "CALM"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything you are looking forward to?"},
+        {"role": "PATIENT", "text": "Yes, my best friend is visiting on Sunday and I am really happy about that.", "emotion": "JOY"}
+      ]
+    },
+    {
+      "id": "C06",
+      "title": "Missing home",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling these days?"},
+        {"role": "PATIENT", "text": "I keep remembering my childhood home in Lucknow and my mother's cooking.", "emotion": "NOSTALGIA"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Fine, but I often dream about my old school friends and the good old days.", "emotion": "NOSTALGIA"},
+        {"role": "HEALTH_CONSULTANT", "text": "Is anything troubling you?"},
+        {"role": "PATIENT", "text": "Living alone in this city makes me sad sometimes.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do in your free time?"},
+        {"role": "PATIENT", "text": "I look at old family photographs and listen to the songs my father used to play.", "emotion": "NOSTALGIA"}
+      ]
+    },
+    {
+      "id": "C07",
+      "title": "Good news - promotion",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Wonderful! I got promoted yesterday and I am so happy.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "That's great. How has your sleep been?"},
+        {"role": "PATIENT", "text": "I could barely sleep, I was so thrilled and excited I kept planning the celebration!", "emotion": "EXCITEMENT"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything worrying you?"},
+        {"role": "PATIENT", "text": "Nothing at all, life feels joyful right now.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "How are you spending your free time?"},
+        {"role": "PATIENT", "text": "Laughing with my family and enjoying every moment, I feel cheerful.", "emotion": "JOY"}
+      ]
+    },
+    {
+      "id": "C08",
+      "title": "Anger at a colleague",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Angry. My colleague took credit for my work in front of the whole team.", "emotion": "ANGER"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "I lie awake furious, replaying what he said and wanting to shout at him.", "emotion": "ANGER"},
+        {"role": "HEALTH_CONSULTANT", "text": "Have you spoken to anyone about it?"},
+        {"role": "PATIENT", "text": "I told my manager twice and nothing changes, it is so frustrating.", "emotion": "FRUSTRATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do to unwind?"},
+        {"role": "PATIENT", "text": "Nothing works, I am still boiling with rage whenever I see him.", "emotion": "ANGER"}
+      ]
+    },
+    {
+      "id": "C09",
+      "title": "Frustrated with slow recovery",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How is your knee recovery going?"},
+        {"role": "PATIENT", "text": "It's frustrating, three months of physiotherapy and I still can't walk properly.", "emotion": "FRUSTRATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Annoying, the pain wakes me up and nothing I try seems to help.", "emotion": "FRUSTRATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "How do you feel about it overall?"},
+        {"role": "PATIENT", "text": "I am fed up of being stuck at home, I keep hitting a wall.", "emotion": "FRUSTRATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything else on your mind?"},
+        {"role": "PATIENT", "text": "Sometimes I just feel sad that I can't play football with my son anymore.", "emotion": "SADNESS"}
+      ]
+    },
+    {
+      "id": "C10",
+      "title": "New relationship",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "I am in love! I met someone special and I think about her all day.", "emotion": "LOVE"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Good, we talk on the phone every night and I fall asleep smiling about her.", "emotion": "LOVE"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything worrying you?"},
+        {"role": "PATIENT", "text": "No, I am just really happy these days.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do in your free time?"},
+        {"role": "PATIENT", "text": "I write romantic poems for her and plan our dates, I adore her.", "emotion": "LOVE"}
+      ]
+    },
+    {
+      "id": "C11",
+      "title": "Calm retiree",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Calm and peaceful. Retirement has given me a quiet mind.", "emotion": "CALM"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Steady, I sleep at ten and wake up with the sunrise feeling at peace.", "emotion": "CALM"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do in your free time?"},
+        {"role": "PATIENT", "text": "I tend my garden and read slowly in the afternoon, it is very relaxing.", "emotion": "RELAXATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything troubling you?"},
+        {"role": "PATIENT", "text": "Nothing, I feel serene and content with life.", "emotion": "CALM"}
+      ]
+    },
+    {
+      "id": "C12",
+      "title": "Hinglish - sadness",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "Aap aaj kaisa feel kar rahe hain?"},
+        {"role": "PATIENT", "text": "Aaj kal mann bahut udaas rehta hai, kuch accha nahi lagta.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Neend kaisi aa rahi hai?"},
+        {"role": "PATIENT", "text": "Raat ko rona aa jata hai, akela mehsoos karta hoon.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Koi pareshani hai?"},
+        {"role": "PATIENT", "text": "Office mein kaam ka bahut pressure hai, tension rehti hai.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Free time mein kya karte hain?"},
+        {"role": "PATIENT", "text": "Kuch nahi, bas dukhi hoke baitha rehta hoon.", "emotion": "SADNESS"}
+      ]
+    },
+    {
+      "id": "C13",
+      "title": "Hinglish - stress",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "Kaise ho aap aaj?"},
+        {"role": "PATIENT", "text": "Bahut stress mein hoon, ghar aur office dono ka load hai.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Neend theek aa rahi hai?"},
+        {"role": "PATIENT", "text": "Nahi, deadlines ki tension mein neend hi nahi aati.", "emotion": "STRESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "Kisi baat ki chinta hai?"},
+        {"role": "PATIENT", "text": "Haan, dar lagta hai ki kuch galat na ho jaye, dil ghabrata hai.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "Free time milta hai?"},
+        {"role": "PATIENT", "text": "Bilkul nahi, sar pe itna kaam hai ki saans lene ka time nahi.", "emotion": "STRESS"}
+      ]
+    },
+    {
+      "id": "C14",
+      "title": "Loneliness and melancholy",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "A quiet heaviness, a kind of wistful gloom that never fully lifts.", "emotion": "MELANCHOLY"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "I sit by the window at night watching the rain, feeling pensive and somber.", "emotion": "MELANCHOLY"},
+        {"role": "HEALTH_CONSULTANT", "text": "Has anything upset you?"},
+        {"role": "PATIENT", "text": "My friends have all moved away and I feel sad and alone.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "What do you do in your free time?"},
+        {"role": "PATIENT", "text": "I read old poetry about longing; it suits my bittersweet, brooding mood.", "emotion": "MELANCHOLY"}
+      ]
+    },
+    {
+      "id": "C15",
+      "title": "High emotional variability",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Anxious, I have a medical test result coming tomorrow and I can't stop worrying.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Restless, I keep imagining the worst and my chest feels tight with fear.", "emotion": "ANXIETY"},
+        {"role": "HEALTH_CONSULTANT", "text": "Has anything good happened recently?"},
+        {"role": "PATIENT", "text": "Yes! My daughter won her school prize and I was so happy and proud.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything else on your mind?"},
+        {"role": "PATIENT", "text": "I miss my late husband, it makes me sad that he couldn't see her win.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "How do you feel right now, talking about it?"},
+        {"role": "PATIENT", "text": "Talking helps, I feel a little calmer and more settled now.", "emotion": "CALM"}
+      ]
+    },
+    {
+      "id": "C16",
+      "title": "Excited about a trip",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Super excited! I leave for my first trek in the Himalayas on Friday!", "emotion": "EXCITEMENT"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "I can hardly sleep, I am buzzing with energy and keep checking my gear!", "emotion": "EXCITEMENT"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything worrying you?"},
+        {"role": "PATIENT", "text": "No, I just feel happy and grateful.", "emotion": "JOY"},
+        {"role": "HEALTH_CONSULTANT", "text": "What are you doing in your free time?"},
+        {"role": "PATIENT", "text": "Watching trekking videos and dancing around the house, I am so pumped up!", "emotion": "EXCITEMENT"}
+      ]
+    },
+    {
+      "id": "C17",
+      "title": "Hindi (Devanagari) - nostalgia",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "आप आज कैसा महसूस कर रहे हैं?"},
+        {"role": "PATIENT", "text": "आज बचपन के दिन बहुत याद आ रहे हैं, गाँव का घर और दोस्त।", "emotion": "NOSTALGIA"},
+        {"role": "HEALTH_CONSULTANT", "text": "नींद कैसी आ रही है?"},
+        {"role": "PATIENT", "text": "ठीक है, पर सपनों में पुराने स्कूल के दिन दिखते हैं।", "emotion": "NOSTALGIA"},
+        {"role": "HEALTH_CONSULTANT", "text": "कोई परेशानी है?"},
+        {"role": "PATIENT", "text": "माँ की बहुत याद आती है, मन उदास हो जाता है।", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "text": "खाली समय में क्या करते हैं?"},
+        {"role": "PATIENT", "text": "पुराने गाने सुनता हूँ जो पिताजी रेडियो पर सुनते थे।", "emotion": "NOSTALGIA"}
+      ]
+    },
+    {
+      "id": "C18",
+      "title": "Relaxed after a holiday",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "text": "How are you feeling today?"},
+        {"role": "PATIENT", "text": "Relaxed. I just came back from a week at the beach and my body feels loose.", "emotion": "RELAXATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "How has your sleep been?"},
+        {"role": "PATIENT", "text": "Deep and easy, I sleep like a baby and wake up unhurried.", "emotion": "RELAXATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "Anything worrying you?"},
+        {"role": "PATIENT", "text": "Not at all, I'm taking things slowly and resting.", "emotion": "RELAXATION"},
+        {"role": "HEALTH_CONSULTANT", "text": "How was the trip?"},
+        {"role": "PATIENT", "text": "It was so much fun, I laughed a lot with my cousins.", "emotion": "JOY"}
+      ]
+    }
+  ]
+}

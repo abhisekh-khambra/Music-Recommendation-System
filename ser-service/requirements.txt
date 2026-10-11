@@ -1,0 +1,10 @@
+# Install CPU-only torch first (smaller, no GPU needed):
+#   pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+torch==2.8.0
+transformers==4.56.1
+fastapi==0.116.1
+uvicorn==0.35.0
+numpy==2.3.2
+# tests
+pytest==8.4.1
+httpx==0.28.1

@@ -6,3 +6,12 @@ backend/target/
 **/.env
 e2e/fixtures/
 e2e/results/
+
+# Speech-emotion service
+ser-service/.venv/
+__pycache__/
+.pytest_cache/
+
+# Real recordings contain people's voices — keep out of git unless everyone agreed
+evaluation/audio/real/
+evaluation/audio/manifest_real.json

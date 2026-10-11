@@ -142,6 +142,136 @@ public class SpeakerDiarizationService {
         return new DiarizationResult(result, reliable, method);
     }
 
+    /**
+     * Which separation to use when both ran: reliable voiceprints first (they capture timbre, not just
+     * pitch), then reliable pitch clustering; when neither is reliable the voiceprint split is kept and
+     * both explanations are reported. No voiceprints → the pitch result as is.
+     */
+    public static DiarizationResult choose(DiarizationResult pitch, DiarizationResult voiceprint) {
+        if (voiceprint == null) return pitch;
+        if (voiceprint.reliable()) return voiceprint;
+        if (pitch.reliable()) return pitch;
+        return new DiarizationResult(voiceprint.segments(), false,
+                voiceprint.method() + " Pitch clustering: " + pitch.method());
+    }
+
+    // ── Voiceprint (speaker-embedding) diarization ──────────────────
+
+    /**
+     * Two voice clusters are only treated as two different speakers when the cosine similarity of
+     * their mean voiceprints is at most this. Same-speaker WavLM x-vectors typically score above
+     * ~0.86 (the threshold suggested for microsoft/wavlm-base-plus-sv speaker verification).
+     */
+    static final double MAX_SPEAKER_CENTROID_SIMILARITY = 0.86;
+
+    /**
+     * Speaker separation from per-segment voiceprints (speaker embeddings from the speech-emotion
+     * service). Unlike pitch, a voiceprint captures timbre, so two voices of the same gender can be
+     * told apart. Deterministic 2-means on cosine similarity, seeded by the least similar pair;
+     * segments without a voiceprint (too short) inherit the nearest segment's speaker.
+     *
+     * @param embeddings one voiceprint per segment, aligned with {@code segments}; null entries allowed
+     * @param frames     acoustic frames, only used to attach per-segment acoustic summaries
+     */
+    public DiarizationResult diarizeByEmbeddings(List<TranscriptSegmentDTO> segments, List<double[]> embeddings,
+                                                 List<AcousticFeatureExtractor.Frame> frames) {
+        int n = segments.size();
+        List<AcousticFeatureExtractor.Summary> summaries = segments.stream()
+                .map(s -> featureExtractor.summarize(frames, s.startMs(), s.endMs()))
+                .toList();
+        List<Integer> withVoice = new ArrayList<>();
+        for (int i = 0; i < n; i++) if (i < embeddings.size() && embeddings.get(i) != null) withVoice.add(i);
+        int m = withVoice.size();
+
+        int[] assignment = new int[n];
+        boolean reliable = false;
+        double similarity = 1.0;
+        int smallest = 0;
+        if (m >= 2) {
+            double[][] v = withVoice.stream().map(i -> normalize(embeddings.get(i))).toArray(double[][]::new);
+            int[] a = cosineKMeans2(v);
+            for (int k = 0; k < m; k++) assignment[withVoice.get(k)] = a[k];
+            int ones = 0;
+            for (int c : a) ones += c;
+            smallest = Math.min(ones, m - ones);
+            if (smallest > 0) similarity = cosine(meanVector(v, a, 0), meanVector(v, a, 1));
+            int minClusterSize = m >= MIN_SEGMENTS_FOR_CLUSTER_SIZE_CHECK ? 2 : 1;
+            reliable = smallest >= minClusterSize && similarity <= MAX_SPEAKER_CENTROID_SIMILARITY;
+        }
+        for (int i = 0; i < n; i++) {
+            if (withVoice.contains(i) || m == 0) continue;
+            int nearest = withVoice.get(0);
+            for (int k : withVoice) if (Math.abs(k - i) < Math.abs(nearest - i)) nearest = k;
+            assignment[i] = assignment[nearest];
+        }
+
+        List<DiarizedSegment> result = new ArrayList<>();
+        for (int i = 0; i < n; i++) result.add(new DiarizedSegment(segments.get(i), summaries.get(i), assignment[i]));
+
+        String method = reliable
+                ? String.format("Voiceprint clustering (WavLM speaker embeddings, cosine 2-means) separated the transcript "
+                  + "into two distinct voices (similarity between the two voices %.2f, at most %.2f allowed).",
+                  similarity, MAX_SPEAKER_CENTROID_SIMILARITY)
+                : String.format("Voiceprint clustering ran but did not find two clearly different voices (similarity "
+                  + "between the two voice clusters %.2f, at most %.2f allowed; smaller cluster has %d segment(s); "
+                  + "%d of %d segments had a voiceprint) — likely one voice, or too little speech.",
+                  similarity, MAX_SPEAKER_CENTROID_SIMILARITY, smallest, m, n);
+        return new DiarizationResult(result, reliable, method);
+    }
+
+    private int[] cosineKMeans2(double[][] v) {
+        int n = v.length;
+        int seedA = 0, seedB = 1;
+        double minSim = Double.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                double s = cosine(v[i], v[j]);
+                if (s < minSim) { minSim = s; seedA = i; seedB = j; }
+            }
+        }
+        double[] ca = v[seedA], cb = v[seedB];
+        int[] assignment = new int[n];
+        for (int iter = 0; iter < MAX_ITERATIONS; iter++) {
+            boolean changed = false;
+            for (int i = 0; i < n; i++) {
+                int c = cosine(v[i], ca) >= cosine(v[i], cb) ? 0 : 1;
+                if (assignment[i] != c) changed = true;
+                assignment[i] = c;
+            }
+            ca = meanVector(v, assignment, 0);
+            cb = meanVector(v, assignment, 1);
+            if (!changed && iter > 0) break;
+        }
+        return assignment;
+    }
+
+    private static double[] meanVector(double[][] v, int[] assignment, int cluster) {
+        double[] sum = new double[v[0].length];
+        int count = 0;
+        for (int i = 0; i < v.length; i++) {
+            if (assignment[i] != cluster) continue;
+            for (int d = 0; d < sum.length; d++) sum[d] += v[i][d];
+            count++;
+        }
+        if (count > 0) for (int d = 0; d < sum.length; d++) sum[d] /= count;
+        return sum;
+    }
+
+    private static double[] normalize(double[] x) {
+        double norm = 0;
+        for (double d : x) norm += d * d;
+        norm = Math.sqrt(norm);
+        double[] out = new double[x.length];
+        for (int i = 0; i < x.length; i++) out[i] = norm > 0 ? x[i] / norm : 0;
+        return out;
+    }
+
+    private static double cosine(double[] a, double[] b) {
+        double dot = 0, na = 0, nb = 0;
+        for (int i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+        return na == 0 || nb == 0 ? 0 : dot / Math.sqrt(na * nb);
+    }
+
     // ── 2-means clustering ──────────────────────────────────────────
 
     private int[] kMeans2(double[] pitchZ, double[] energyZ, int n) {

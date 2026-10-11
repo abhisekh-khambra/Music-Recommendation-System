@@ -61,8 +61,4 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 
     /** Same as above, additionally restricted to a single language (used by the Hindi-only conversation pipeline) */
     List<Track> findByRagaInAndLanguageIgnoreCaseOrderByPopularityDesc(List<String> ragas, String language);
-
-    /** Fetch by IDs preserving order (used after reranking) */
-    @Query("SELECT t FROM Track t WHERE t.id IN :ids ORDER BY t.popularity DESC")
-    List<Track> findAllByIdIn(@Param("ids") List<Long> ids);
 }

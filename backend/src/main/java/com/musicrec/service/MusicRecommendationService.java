@@ -71,6 +71,9 @@ public class MusicRecommendationService {
     );
     private static final double SECONDARY_EMOTION_WEIGHT = 1.0;
     private static final double KEYWORD_TAG_WEIGHT        = 0.8;
+    // Exact primary-emotion match for a non-dominant emotion in the Patient's distribution —
+    // as precise as emotion_any, just for a different emotion.
+    private static final double DISTRIBUTION_EMOTION_WEIGHT = 1.2;
 
     // Highest weight of all — the specific Raga chosen by RagaSelectionService for the
     // conversation pipeline. Raga is meant to be the central driver of that pipeline's
@@ -171,8 +174,33 @@ public class MusicRecommendationService {
      *                        currently does — the restriction is system-wide by design now).
      */
     public RankingResult recommend(EmotionMetadata emotion, String primaryRaga, boolean restrictToHindi) {
+        return recommend(emotion, primaryRaga, restrictToHindi, PlaylistPlan.NONE);
+    }
+
+    /**
+     * How the conversation pipeline's Top-N is shaped: the Patient's emotion distribution (percent of
+     * responses per emotion) and the raga chosen for each emotion's share.
+     */
+    public record PlaylistPlan(Map<String, Double> distribution, Map<String, String> ragaByEmotion) {
+        public static final PlaylistPlan NONE = new PlaylistPlan(Map.of(), Map.of());
+
+        boolean splits() {
+            return distribution != null && !distribution.isEmpty();
+        }
+    }
+
+    /**
+     * Conversation pipeline: same as above, but the Top-N is split across the Patient's emotions in
+     * proportion to their share of the responses (EmotionQuotaAllocator) — e.g. 50% SADNESS gives
+     * 5 of 10 songs — each emotion in the distribution gets its own retrieval source, and each
+     * share's raga gets its own source too, so the fused pool has songs to fill every share.
+     *
+     * @param plan emotion distribution + raga per share; {@link PlaylistPlan#NONE} → no split
+     */
+    public RankingResult recommend(EmotionMetadata emotion, String primaryRaga, boolean restrictToHindi,
+                                   PlaylistPlan plan) {
         // ── STEP 1: RETRIEVE ────────────────────────────────────────
-        Map<String, List<Track>> sources = retrieve(emotion, primaryRaga);
+        Map<String, List<Track>> sources = retrieve(emotion, primaryRaga, plan);
 
         if (restrictToHindi) {
             sources = filterToHindi(sources);
@@ -217,7 +245,24 @@ public class MusicRecommendationService {
         List<Track> shortlisted = lightweightRerankerService.rerank(fused, fuseResult.scores(), evidenceByTrack);
 
         // ── STEP 5: SELECT (Groq LLM, constrained to the assigned evidence) ─
-        return select(shortlisted, evidenceByTrack, emotion);
+        RankingResult selected = select(shortlisted, evidenceByTrack, emotion);
+        if (!plan.splits()) {
+            return selected;
+        }
+
+        // ── STEP 6: EMOTION-SHARE SPLIT (pure code) ─────────────────
+        // Preference order: the LLM's picks first, then the rest of the fused pool in RRF order,
+        // so a share the picks can't fill is filled from the next-best fused candidates.
+        List<TrackDTO> preference = new ArrayList<>(selected.tracks());
+        Set<Long> pickedIds = preference.stream().map(TrackDTO::getId).collect(Collectors.toSet());
+        fused.stream().filter(t -> !pickedIds.contains(t.getId())).map(TrackDTO::from).forEach(preference::add);
+
+        EmotionQuotaAllocator.Allocation allocation =
+                EmotionQuotaAllocator.allocate(preference, plan.distribution(), plan.ragaByEmotion(), topNResults);
+        ensureExplained(allocation.tracks(), evidenceByTrack);
+        log.info("EMOTION SPLIT: {}", allocation.slots());
+        return new RankingResult(allocation.tracks(), selected.conversationalMessage(), allocation.slots(),
+                selected.llmSelectionUsed());
     }
 
     /**
@@ -248,7 +293,7 @@ public class MusicRecommendationService {
      * Each query is a separate "source" for RRF.
      * Returns a map of sourceName → ranked track list.
      */
-    private Map<String, List<Track>> retrieve(EmotionMetadata emotion, String primaryRaga) {
+    private Map<String, List<Track>> retrieve(EmotionMetadata emotion, String primaryRaga, PlaylistPlan plan) {
         Map<String, List<Track>> sources = new LinkedHashMap<>();
 
         String primaryEmotion = emotion.getPrimaryEmotionSafe();
@@ -269,6 +314,26 @@ public class MusicRecommendationService {
         // Source 2: primary emotion, any language
         sources.put("emotion_any",
                 trackRepository.findByPrimaryEmotionIgnoreCaseOrderByPopularityDesc(primaryEmotion));
+
+        // Sources: one primary-emotion source per other emotion in the Patient's response
+        // distribution (conversation pipeline only), so every share of the playlist split
+        // has primary-emotion candidates in the fused pool.
+        if (plan.distribution() != null) {
+            for (String e : plan.distribution().keySet()) {
+                if (e.equalsIgnoreCase(primaryEmotion)) continue;
+                sources.put("distribution_" + e.toUpperCase(),
+                        trackRepository.findByPrimaryEmotionIgnoreCaseOrderByPopularityDesc(e));
+            }
+        }
+
+        // Sources: one per share raga (conversation pipeline only) — each emotion's share has its own
+        // raga, and its songs must be in the fused pool for that share to be filled from them.
+        if (plan.ragaByEmotion() != null) {
+            new LinkedHashSet<>(plan.ragaByEmotion().values()).stream()
+                    .filter(r -> !r.equalsIgnoreCase(primaryRaga))
+                    .forEach(r -> sources.put("share_raga_" + r,
+                            trackRepository.findByRagaInOrderByPopularityDesc(List.of(r))));
+        }
 
         // Source: ragas traditionally associated (via rasa theory) with the user's
         // primary + expanded emotions — e.g. STRESS/ANGER → Ahir Bhairav, Bhairav;
@@ -366,6 +431,8 @@ public class MusicRecommendationService {
         if (sourceName.equals("raga_primary")) return RAGA_PRIMARY_WEIGHT;
         Double explicit = SOURCE_WEIGHTS.get(sourceName);
         if (explicit != null) return explicit;
+        if (sourceName.startsWith("distribution_")) return DISTRIBUTION_EMOTION_WEIGHT;
+        if (sourceName.startsWith("share_raga_"))   return SOURCE_WEIGHTS.get("raga_match");
         if (sourceName.startsWith("secondary_")) return SECONDARY_EMOTION_WEIGHT;
         if (sourceName.startsWith("keyword_"))   return KEYWORD_TAG_WEIGHT;
         return 1.0;
@@ -457,7 +524,7 @@ public class MusicRecommendationService {
             ensureExplained(ordered, evidenceByTrack);
             String message = root.path("recommendation_message").asText(defaultMessage(emotion));
             log.info("SELECT: Groq selected {} tracks ({} explained by the LLM, rest from their evidence)", ordered.size(), llmExplained);
-            return new RankingResult(ordered, message);
+            return new RankingResult(ordered, message, List.of(), true);
 
         } catch (Exception ex) {
             log.warn("Failed to parse rerank response: {}", ex.getMessage());
@@ -473,7 +540,7 @@ public class MusicRecommendationService {
                 .map(TrackDTO::from)
                 .collect(Collectors.toList());
         ensureExplained(top, evidenceByTrack);
-        return new RankingResult(top, defaultMessage(emotion));
+        return new RankingResult(top, defaultMessage(emotion), List.of(), false);
     }
 
     /**
@@ -555,5 +622,16 @@ public class MusicRecommendationService {
 
     // ── Result type ───────────────────────────────────────────────
 
-    public record RankingResult(List<TrackDTO> tracks, String conversationalMessage) {}
+    /**
+     * @param emotionAllocation per-emotion share of the playlist; empty unless a distribution was given
+     * @param llmSelectionUsed  false when the LLM SELECT call failed or its reply couldn't be parsed and
+     *                          the songs are in fused-rank order instead (e.g. Groq rate limit)
+     */
+    public record RankingResult(List<TrackDTO> tracks, String conversationalMessage,
+                                List<com.musicrec.dto.EmotionSlotDTO> emotionAllocation,
+                                boolean llmSelectionUsed) {
+        public RankingResult(List<TrackDTO> tracks, String conversationalMessage) {
+            this(tracks, conversationalMessage, List.of(), true);
+        }
+    }
 }

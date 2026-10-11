@@ -90,6 +90,7 @@ export default function ConversationResult({ data, onCorrectRoles }) {
   const {
     turns, analysis, ragaSelection, recommendations, conversationalMessage, warnings,
     audioEmotionProfile, emotionalVariability, diarizationMethod, speakerAssignmentUncertain,
+    emotionAllocation,
   } = data;
 
   const roleFor = (t) => editedRoles[t.order] ?? t.speakerRole;
@@ -268,9 +269,16 @@ export default function ConversationResult({ data, onCorrectRoles }) {
               <div key={i} className="flex items-center justify-between gap-2 bg-gray-900/40 rounded-lg px-2.5 py-1.5 text-xs">
                 <span className="text-gray-500 shrink-0">{formatMs(s.startMs)}–{formatMs(s.endMs)}</span>
                 <span className="text-gray-300 truncate flex-1 px-2">{s.text}</span>
-                <span className="emotion-badge bg-gray-700/60 text-gray-300 border border-gray-600 shrink-0">
+                <span className="emotion-badge bg-gray-700/60 text-gray-300 border border-gray-600 shrink-0"
+                      title={s.fusionNote || ""}>
                   {s.primaryEmotion} {Math.round((s.intensity ?? 0) * 100)}%
                 </span>
+                {s.voiceEmotion && (
+                  <span className="emotion-badge border shrink-0 bg-sky-900/30 text-sky-200 border-sky-700/50"
+                        title={`Words: ${s.textEmotion} · Voice: ${s.voiceEmotion}`}>
+                    🗣 {s.voiceEmotion} {Math.round((s.voiceEmotionConfidence ?? 0) * 100)}%
+                  </span>
+                )}
                 {s.audioArousalLevel && (
                   <span className={`emotion-badge border shrink-0 ${AROUSAL_STYLES[s.audioArousalLevel] || AROUSAL_STYLES.UNKNOWN}`}>
                     🎙 {s.audioArousalLevel}
@@ -279,6 +287,9 @@ export default function ConversationResult({ data, onCorrectRoles }) {
               </div>
             ))}
           </div>
+          {data.speechEmotionMethod && (
+            <p className="text-[11px] text-gray-400 mt-2">{data.speechEmotionMethod}</p>
+          )}
           <p className="text-[11px] text-gray-500 italic mt-2 border-t border-gray-700 pt-2">
             Per-segment predictions, not confirmed states — see overall Patient Analysis below for the aggregated profile.
           </p>
@@ -357,6 +368,24 @@ export default function ConversationResult({ data, onCorrectRoles }) {
           <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">
             Top {recommendations.length} Raga-Based Hindi Songs
           </p>
+          {emotionAllocation?.length > 0 && (
+            <div className="bg-gray-800/60 border border-gray-700 rounded-xl px-4 py-3">
+              <p className="text-xs text-gray-400 mb-2">
+                Playlist split by the share of each emotion in the patient's responses
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {emotionAllocation.map((s) => (
+                  <span key={s.emotion}
+                        className={`emotion-badge border ${s.filledSlots < s.targetSlots
+                          ? "bg-yellow-900/30 text-yellow-200 border-yellow-700/40"
+                          : "bg-purple-900/40 text-purple-200 border-purple-700/50"}`}>
+                    {s.emotion} {Math.round(s.sharePercent)}% → {s.filledSlots}/{s.targetSlots} songs
+                    {s.raga ? ` · Raga ${s.raga}` : " · no raga"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {recommendations.map((track, i) => (
             <TrackCard key={track.id} track={track} rank={i + 1} />
           ))}

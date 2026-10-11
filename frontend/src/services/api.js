@@ -44,12 +44,14 @@ export const getTextRecommendation = (message, sessionId) =>
  * Send a recorded audio Blob and receive transcription + Hindi-only recommendations.
  * @param {Blob} audioBlob
  * @param {string} sessionId
+ * @param {"TEXT"|"VOICE"|"FUSED"} [emotionSource] where the emotion comes from: words, voice, or both
  * @returns {Promise<RecommendationResponse>}
  */
-export const getVoiceRecommendation = (audioBlob, sessionId) => {
+export const getVoiceRecommendation = (audioBlob, sessionId, emotionSource) => {
   const form = new FormData();
   form.append("audio", audioBlob, "recording.webm");
   if (sessionId) form.append("sessionId", sessionId);
+  if (emotionSource) form.append("emotionSource", emotionSource);
   return client
     .post("/recommend/voice", form, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -66,10 +68,11 @@ export const getVoiceRecommendation = (audioBlob, sessionId) => {
  * @param {string} sessionId
  * @returns {Promise<ConversationRecommendationResponse>}
  */
-export const getConversationAnalysis = (audioFile, sessionId) => {
+export const getConversationAnalysis = (audioFile, sessionId, emotionSource) => {
   const form = new FormData();
   form.append("audio", audioFile, audioFile.name || "conversation.webm");
   if (sessionId) form.append("sessionId", sessionId);
+  if (emotionSource) form.append("emotionSource", emotionSource);
   return client
     .post("/conversation/analyze", form, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -110,3 +113,18 @@ export const getAllTracks = (filters = {}) => {
   if (filters.language) params.language = filters.language;
   return client.get("/tracks", { params }).then((r) => r.data);
 };
+
+// ── Playlists beyond the current mood ─────────────────────────
+
+/** Singers and ragas that have Hindi songs: { artists: string[], ragas: {raga: count} } */
+export const getPlaylistOptions = () => client.get("/playlists/options").then((r) => r.data);
+
+/** Songs recommended in this session, most frequent first. */
+export const getHistoryPlaylist = (sessionId) =>
+  client.get(`/playlists/history/${sessionId}`).then((r) => r.data);
+
+export const getArtistPlaylist = (name) =>
+  client.get("/playlists/artist", { params: { name } }).then((r) => r.data);
+
+export const getRagaPlaylist = (raga) =>
+  client.get(`/playlists/raga/${encodeURIComponent(raga)}`).then((r) => r.data);

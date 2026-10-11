@@ -33,6 +33,12 @@ public class TrackDTO {
     /** Set by MusicRecommendationService after reranking */
     private String explanation;
 
+    /**
+     * Conversation pipeline only: the Patient emotion whose share of the playlist this song fills
+     * (EmotionQuotaAllocator). Null for text/voice results and for general-fit fillers.
+     */
+    private String matchedEmotion;
+
     public static TrackDTO from(Track track) {
         TrackDTO dto = new TrackDTO();
         dto.setId(track.getId());

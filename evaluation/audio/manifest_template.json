@@ -1,0 +1,17 @@
+{
+  "name": "real-recordings-v1",
+  "source": "real-recording",
+  "description": "Consented role-play recordings of Health Consultant / Patient conversations.",
+  "recordings": [
+    {
+      "id": "R01",
+      "file": "real/R01.m4a",
+      "turns": [
+        {"role": "HEALTH_CONSULTANT", "startMs": 0, "endMs": 2100, "text": "How are you feeling today?"},
+        {"role": "PATIENT", "startMs": 2400, "endMs": 6800, "text": "Honestly not great, I have been feeling low all week.", "emotion": "SADNESS"},
+        {"role": "HEALTH_CONSULTANT", "startMs": 7200, "endMs": 9300, "text": "How has your sleep been recently?"},
+        {"role": "PATIENT", "startMs": 9700, "endMs": 14500, "text": "I keep waking up at 3 am worrying about work.", "emotion": "ANXIETY"}
+      ]
+    }
+  ]
+}

@@ -1,39 +1,28 @@
 package com.musicrec.controller;
 
-import com.musicrec.audio.AcousticEmotionAnalysisService;
 import com.musicrec.audio.AcousticFeatureExtractor;
 import com.musicrec.audio.AudioTranscodingService;
 import com.musicrec.audio.SpeakerDiarizationService;
-import com.musicrec.dto.AudioEmotionProfileDTO;
+import com.musicrec.audio.SpeechEmotionClient;
+import com.musicrec.audio.SpeechEmotionFusion;
+import org.springframework.beans.factory.annotation.Value;
 import com.musicrec.dto.ConversationRecommendationResponse;
 import com.musicrec.dto.ConversationTurnDTO;
-import com.musicrec.dto.EmotionMetadata;
-import com.musicrec.dto.EmotionalVariabilityDTO;
-import com.musicrec.dto.PatientSegmentEmotionDTO;
-import com.musicrec.dto.RagaSelectionDTO;
 import com.musicrec.dto.RoleReassignmentRequest;
-import com.musicrec.entity.ChatHistory;
 import com.musicrec.exception.ConversationProcessingException;
 import com.musicrec.exception.InvalidAudioException;
-import com.musicrec.dto.TrackDTO;
 import com.musicrec.dto.TranscriptSegmentDTO;
-import com.musicrec.repository.ChatHistoryRepository;
-import com.musicrec.repository.UserRepository;
 import com.musicrec.service.ConversationAnalysisService;
-import com.musicrec.service.EmotionAnalysisService;
-import com.musicrec.service.MusicRecommendationService;
-import com.musicrec.service.RagaSelectionService;
+import com.musicrec.service.ConversationPipelineService;
 import com.musicrec.service.SpeakerRoleResolver;
 import com.musicrec.service.SpeechToTextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -46,9 +35,9 @@ import java.util.stream.Collectors;
  * Conversation Audio → Segmented Speech-to-Text (real timestamps)
  *   → Audio-based Speaker Diarization (acoustic clustering) + Text-based Role Labeling
  *   → [optional user correction via /reassign-roles]
- *   → Patient-only Segment Emotion Analysis (text + acoustic arousal, per segment)
- *   → Non-diagnostic Analysis + Emotional-Variability Profile
- *   → Raga Selection → Hindi-only Raga-Based Candidate Songs → Ranked Recommendations
+ *   → ConversationPipelineService: Patient-only Segment Emotion Analysis (text + acoustic arousal)
+ *     → Emotional-Variability Profile → Raga Selection → Hindi-only Raga-Based Candidate Songs
+ *     → Top-N split across the Patient's emotions by share → Ranked Recommendations
  *
  * This is additive: it does not remove /recommend/text or /recommend/voice. The
  * Hindi-only restriction (req. #2) is now enforced system-wide (see
@@ -67,18 +56,20 @@ public class ConversationController {
     private final SpeechToTextService speechToTextService;
     private final ConversationAnalysisService conversationAnalysisService;
     private final SpeakerRoleResolver speakerRoleResolver;
-    private final EmotionAnalysisService emotionAnalysisService;
-    private final RagaSelectionService ragaSelectionService;
-    private final MusicRecommendationService recommendationService;
     private final AudioTranscodingService audioTranscodingService;
     private final AcousticFeatureExtractor acousticFeatureExtractor;
-    private final AcousticEmotionAnalysisService acousticEmotionAnalysisService;
     private final SpeakerDiarizationService speakerDiarizationService;
-    private final ChatHistoryRepository chatHistoryRepository;
-    private final UserRepository userRepository;
+    private final ConversationPipelineService conversationPipelineService;
+    private final SpeechEmotionClient speechEmotionClient;
 
-    @Value("${app.recommendation.top-n-results:10}")
-    private int topNResults;
+    /** Voice weight when fusing the speech-emotion model with the words (0 = words only, 1 = voice only). */
+    @Value("${app.ser.audio-weight:0.3}")
+    private double audioWeight;
+
+    private static final String SER_MODEL = "superb/wav2vec2-base-superb-er speech emotion model";
+
+    /** Decoded upload: raw 16 kHz PCM (null when it couldn't be decoded locally) and its acoustic frames. */
+    private record DecodedAudio(short[] pcm, List<AcousticFeatureExtractor.Frame> frames) {}
 
     /**
      * Accepts a recorded conversation audio file (Health Consultant + Patient) and runs
@@ -93,8 +84,10 @@ public class ConversationController {
     public ResponseEntity<ConversationRecommendationResponse> analyzeConversation(
             @RequestPart("audio") MultipartFile audioFile,
             @RequestParam(value = "sessionId", required = false) String sessionId,
-            @RequestParam(value = "userId", required = false) Long userId) {
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "emotionSource", required = false) String emotionSource) {
 
+        double weight = SpeechEmotionFusion.audioWeightFor(emotionSource, audioWeight);
         validateAudio(audioFile);
         sessionId = resolveSessionId(sessionId);
         List<String> warnings = new ArrayList<>();
@@ -103,7 +96,8 @@ public class ConversationController {
 
         // 0. Decode first: rejects non-audio and silent uploads before speech-to-text,
         //    which would otherwise fail with a 500 or hallucinate a transcript from silence.
-        List<AcousticFeatureExtractor.Frame> frames = decodeFramesOrEmpty(audioFile, warnings);
+        DecodedAudio decoded = decodeOrEmpty(audioFile, warnings);
+        List<AcousticFeatureExtractor.Frame> frames = decoded.frames();
 
         // 1. Segmented Speech-to-Text — real per-segment timestamps decoded from the audio.
         SpeechToTextService.SegmentedTranscript transcript = speechToTextService.transcribeWithSegments(audioFile);
@@ -119,10 +113,25 @@ public class ConversationController {
         List<TranscriptSegmentDTO> speechSegments = dropSegmentsWithoutSpeech(transcript.segments(), frames, warnings);
         String fullText = speechSegments.stream().map(TranscriptSegmentDTO::text).collect(Collectors.joining(" "));
 
-        // 2. Audio-based speaker diarization (acoustic clustering by pitch/energy — real
-        //    signal, not LLM text segmentation) + text-based role labeling, then resolved.
-        SpeakerDiarizationService.DiarizationResult diarization =
+        // 1c. Voice emotion + speaker voiceprint per segment from the local speech-emotion model.
+        java.util.Optional<SpeechEmotionClient.Result> voice = decoded.pcm() == null ? java.util.Optional.empty()
+                : speechEmotionClient.analyze(decoded.pcm(),
+                        speechSegments.stream().map(s -> new long[]{s.startMs(), s.endMs()}).toList(), true);
+        if (voice.isEmpty() && decoded.pcm() != null) {
+            warnings.add("The voice emotion model (speech-emotion service) was unavailable — each response's emotion "
+                    + "comes from the words only, and speakers were separated by pitch only.");
+        }
+
+        // 2. Audio-based speaker diarization — voiceprints (timbre, works for same-gender voices) when
+        //    available, pitch/energy clustering otherwise — + text-based role labeling, then resolved.
+        SpeakerDiarizationService.DiarizationResult pitchDiarization =
                 speakerDiarizationService.diarize(frames, speechSegments);
+        SpeakerDiarizationService.DiarizationResult voiceprintDiarization = voice
+                .map(v -> speakerDiarizationService.diarizeByEmbeddings(speechSegments,
+                        v.segments().stream().map(SpeechEmotionClient.SegmentAnalysis::embedding).toList(), frames))
+                .orElse(null);
+        SpeakerDiarizationService.DiarizationResult diarization =
+                SpeakerDiarizationService.choose(pitchDiarization, voiceprintDiarization);
         List<String> textRoles = conversationAnalysisService.labelRoles(speechSegments);
         SpeakerRoleResolver.Resolution resolution = speakerRoleResolver.resolve(diarization, textRoles);
         warnings.addAll(resolution.warnings());
@@ -132,9 +141,12 @@ public class ConversationController {
         // own warning above already explains *why* in diagnostic terms.
         boolean speakerAssignmentUncertain = !diarization.reliable();
 
-        ConversationRecommendationResponse response = buildResponseFromTurns(
+        ConversationPipelineService.VoiceEvidence evidence = voice
+                .map(v -> new ConversationPipelineService.VoiceEvidence(v.segments(), weight, SER_MODEL))
+                .orElse(null);
+        ConversationRecommendationResponse response = conversationPipelineService.run(
                 fullText, resolution.turns(), frames, resolution.diarizationMethod(),
-                speakerAssignmentUncertain, warnings, sessionId, userId);
+                speakerAssignmentUncertain, warnings, sessionId, userId, true, evidence);
 
         return ResponseEntity.ok(response);
     }
@@ -187,71 +199,18 @@ public class ConversationController {
             List<String> warnings,
             String sessionId,
             Long userId) {
-
-        List<ConversationTurnDTO> patientTurns = turns.stream()
-                .filter(t -> ConversationTurnDTO.PATIENT.equals(t.speakerRole()))
-                .toList();
-        if (patientTurns.isEmpty()) {
-            warnings.add("Could not isolate any Patient turns from the transcript — the full transcript was used for conversation analysis instead.");
-            patientTurns = turns;
-        }
-        String patientText = patientTurns.stream().map(ConversationTurnDTO::text).collect(Collectors.joining(" "));
-
-        // Patient-focused emotion analysis — text (whole patient text) + audio (acoustic
-        // arousal over the same patient-labeled time ranges) + per-segment variability.
-        EmotionMetadata patientEmotion = emotionAnalysisService.analyze(patientText);
-
-        AcousticFeatureExtractor.Summary patientAcoustics = acousticFeatureExtractor.summarize(
-                framesWithinTurns(frames, patientTurns));
-        AudioEmotionProfileDTO audioProfile = acousticEmotionAnalysisService.analyze(patientAcoustics);
-
-        List<PatientSegmentEmotionDTO> segmentEmotions = buildSegmentEmotions(patientTurns, frames);
-        EmotionalVariabilityDTO variability = conversationAnalysisService.buildVariability(segmentEmotions);
-
-        // Raga selection — weighted by the distribution of emotions across the Patient's responses
-        // (not just the single overall label), and Hindi-aware (only counts Hindi-tagged tracks).
-        RagaSelectionDTO ragaSelection = ragaSelectionService.selectRaga(
-                patientEmotion, variability.getEmotionDistribution(), true);
-        warnings.addAll(ragaSelection.getWarnings());
-
-        // Hindi-only Raga-based retrieve → fuse → evidence → rerank → select. Retrieval also uses the
-        // distribution's other emotions (most frequent first) so the playlist reflects the whole mix.
-        EmotionMetadata retrievalEmotion = conversationAnalysisService.withDistributionEmotions(patientEmotion, variability);
-        MusicRecommendationService.RankingResult result =
-                recommendationService.recommend(retrievalEmotion, ragaSelection.getRaga(), true);
-        if (result.tracks().size() < topNResults) {
-            warnings.add("Only " + result.tracks().size() + " verified Hindi-language track(s) matched this "
-                    + "emotional/Raga profile — the catalogue needs more eligible Hindi tracks to reach "
-                    + topNResults + ". Showing all verified matches found; no non-Hindi track was substituted.");
-        }
-
-        persistHistory(fullTranscript, turns, patientEmotion, ragaSelection, result, sessionId, userId);
-
-        return ConversationRecommendationResponse.builder()
-                .fullTranscript(fullTranscript)
-                .turns(turns)
-                .patientText(patientText)
-                .analysis(conversationAnalysisService.buildAnalysis(patientEmotion))
-                .ragaSelection(ragaSelection)
-                .audioEmotionProfile(audioProfile)
-                .emotionalVariability(variability)
-                .diarizationMethod(diarizationMethod)
-                .speakerAssignmentUncertain(speakerAssignmentUncertain)
-                .recommendations(result.tracks())
-                .conversationalMessage(result.conversationalMessage())
-                .warnings(warnings)
-                .sessionId(sessionId)
-                .timestamp(System.currentTimeMillis())
-                .build();
+        return conversationPipelineService.run(fullTranscript, turns, frames, diarizationMethod,
+                speakerAssignmentUncertain, warnings, sessionId, userId, true);
     }
 
     // ── Acoustic helpers ──────────────────────────────────────────
 
     /** Decodes the upload to PCM for acoustic analysis; degrades to an empty frame list (no acoustic signal) on failure. */
-    private List<AcousticFeatureExtractor.Frame> decodeFramesOrEmpty(MultipartFile audioFile, List<String> warnings) {
+    private DecodedAudio decodeOrEmpty(MultipartFile audioFile, List<String> warnings) {
         List<AcousticFeatureExtractor.Frame> frames;
+        short[] samples;
         try {
-            short[] samples = audioTranscodingService.toPcm16Mono16k(audioFile.getBytes(), audioFile.getOriginalFilename());
+            samples = audioTranscodingService.toPcm16Mono16k(audioFile.getBytes(), audioFile.getOriginalFilename());
             frames = acousticFeatureExtractor.analyze(samples);
         } catch (AudioTranscodingService.UndecodableAudioException ex) {
             log.warn("Rejected conversation upload that could not be decoded: {}", ex.getMessage());
@@ -260,12 +219,12 @@ public class ConversationController {
             log.warn("Audio decoding for acoustic analysis failed — continuing with text-only analysis. Cause: {}", ex.getMessage());
             warnings.add("Audio-based acoustic analysis was unavailable for this recording (the audio decoder, ffmpeg, could not be run) — "
                     + "speaker separation and arousal detection fell back to text-based analysis only.");
-            return List.of();
+            return new DecodedAudio(null, List.of());
         }
         if (!AcousticFeatureExtractor.containsSpeech(frames)) {
             throw new InvalidAudioException("No speech was detected in the recording. Please check the microphone and try again.");
         }
-        return frames;
+        return new DecodedAudio(samples, frames);
     }
 
     /**
@@ -290,48 +249,6 @@ public class ConversationController {
                     + "(likely speech-to-text artifacts over silence): " + String.join(", ", dropped) + ".");
         }
         return kept.isEmpty() ? segments : kept;
-    }
-
-    private List<AcousticFeatureExtractor.Frame> framesWithinTurns(
-            List<AcousticFeatureExtractor.Frame> frames, List<ConversationTurnDTO> turns) {
-        if (frames.isEmpty() || turns.isEmpty()) return List.of();
-        return frames.stream()
-                .filter(f -> turns.stream().anyMatch(t -> f.timeMs() >= t.startMs() && f.timeMs() < t.endMs()))
-                .toList();
-    }
-
-    private List<PatientSegmentEmotionDTO> buildSegmentEmotions(
-            List<ConversationTurnDTO> patientTurns, List<AcousticFeatureExtractor.Frame> frames) {
-        if (patientTurns.isEmpty()) return List.of();
-
-        List<String> texts = patientTurns.stream().map(ConversationTurnDTO::text).toList();
-        List<EmotionAnalysisService.SegmentEmotion> textEmotions = emotionAnalysisService.analyzeBatch(texts);
-
-        List<PatientSegmentEmotionDTO> result = new ArrayList<>();
-        for (int i = 0; i < patientTurns.size(); i++) {
-            ConversationTurnDTO turn = patientTurns.get(i);
-            EmotionAnalysisService.SegmentEmotion textEmotion = i < textEmotions.size() ? textEmotions.get(i) : null;
-
-            AudioEmotionProfileDTO segmentAudio = null;
-            if (!frames.isEmpty() && turn.endMs() > turn.startMs()) {
-                AcousticFeatureExtractor.Summary summary =
-                        acousticFeatureExtractor.summarize(frames, turn.startMs(), turn.endMs());
-                segmentAudio = acousticEmotionAnalysisService.analyze(summary);
-            }
-
-            result.add(PatientSegmentEmotionDTO.builder()
-                    .order(turn.order())
-                    .startMs(turn.startMs())
-                    .endMs(turn.endMs())
-                    .text(turn.text())
-                    .primaryEmotion(textEmotion != null ? textEmotion.primaryEmotion() : "RELAXATION")
-                    .intensity(textEmotion != null ? textEmotion.intensity() : 0.5)
-                    .confidence(textEmotion != null ? textEmotion.confidence() : 0.2)
-                    .audioArousalLevel(segmentAudio != null ? segmentAudio.getArousalLevel() : null)
-                    .audioConfidence(segmentAudio != null ? segmentAudio.getConfidence() : null)
-                    .build());
-        }
-        return result;
     }
 
     // ── Validation ────────────────────────────────────────────────
@@ -360,44 +277,5 @@ public class ConversationController {
         String upper = raw == null ? "" : raw.trim().toUpperCase().replace(' ', '_');
         return ConversationTurnDTO.HEALTH_CONSULTANT.equals(upper) ? ConversationTurnDTO.HEALTH_CONSULTANT
                 : ConversationTurnDTO.PATIENT;
-    }
-
-    private void persistHistory(String transcript,
-                                 List<ConversationTurnDTO> turns,
-                                 EmotionMetadata emotion,
-                                 RagaSelectionDTO ragaSelection,
-                                 MusicRecommendationService.RankingResult result,
-                                 String sessionId,
-                                 Long userId) {
-        try {
-            ChatHistory history = new ChatHistory();
-            history.setSessionId(sessionId);
-            history.setUserMessage(transcript);
-            history.setDetectedEmotion(emotion.getPrimaryEmotionSafe());
-            history.setEmotionIntensity(BigDecimal.valueOf(emotion.getIntensity()));
-            history.setAssistantResponse(result.conversationalMessage());
-            history.setRecommendedTrackIds(
-                    result.tracks().stream().map(TrackDTO::getId).collect(Collectors.toList()));
-            history.setInputType(ChatHistory.InputType.conversation);
-            history.setLanguage(emotion.getLanguageSafe());
-            history.setSelectedRaga(ragaSelection.getRaga());
-            history.setSpeakerTurns(turns.stream()
-                    .map(t -> labelFor(t) + ": " + t.text())
-                    .collect(Collectors.toList()));
-
-            if (userId != null) {
-                userRepository.findById(userId).ifPresent(history::setUser);
-            } else {
-                userRepository.findByUsername("anonymous").ifPresent(history::setUser);
-            }
-
-            chatHistoryRepository.save(history);
-        } catch (Exception ex) {
-            log.warn("Failed to persist conversation history: {}", ex.getMessage());
-        }
-    }
-
-    private String labelFor(ConversationTurnDTO turn) {
-        return ConversationTurnDTO.HEALTH_CONSULTANT.equals(turn.speakerRole()) ? "Health Consultant" : "Patient";
     }
 }

@@ -136,6 +136,54 @@ class Suite:
             ("raga reason states coverage of the distribution", "% of the patient's responses" in reason, reason[-120:]),
         ]
 
+    @staticmethod
+    def expected_slots(dist, top_n):
+        """Largest-remainder split of top_n slots by percent share (mirrors EmotionQuotaAllocator)."""
+        total = sum(dist.values())
+        if total <= 0:
+            return {}
+        shares = {e: p / total for e, p in dist.items()}
+        ordered = sorted(shares, key=lambda e: -shares[e])
+        slots = {e: int(shares[e] * top_n) for e in ordered}
+        left = top_n - sum(slots.values())
+        by_rem = sorted(ordered, key=lambda e: (-(shares[e] * top_n - slots[e]), -shares[e]))
+        for e in by_rem[:left]:
+            slots[e] += 1
+        return {e: n for e, n in slots.items() if n > 0}
+
+    @classmethod
+    def emotion_split_checks(cls, d, top_n=10):
+        """The Top-10 must be split across the patient's emotions by their share of the responses."""
+        dist = (d.get("emotionalVariability") or {}).get("emotionDistribution") or {}
+        alloc = d.get("emotionAllocation") or []
+        recs = d.get("recommendations") or []
+        warnings = " ".join(d.get("warnings") or [])
+        if not dist:
+            return [("no distribution -> no split", not alloc, f"{len(alloc)} allocation entries")]
+
+        expected = cls.expected_slots(dist, top_n)
+        reported = {a["emotion"]: a["targetSlots"] for a in alloc}
+        matched = {}
+        for t in recs:
+            if t.get("matchedEmotion"):
+                matched[t["matchedEmotion"]] = matched.get(t["matchedEmotion"], 0) + 1
+        filled_ok = all(matched.get(a["emotion"], 0) == a["filledSlots"] for a in alloc)
+        # Songs appear grouped in allocation order (largest share first), then unlabelled fillers.
+        order = [a["emotion"] for a in alloc] + [None]
+        seq = [order.index(t.get("matchedEmotion")) if t.get("matchedEmotion") in order else len(order) for t in recs]
+        shortfalls = [a for a in alloc if a["filledSlots"] < a["targetSlots"]]
+        llm_flag = d.get("llmSongSelection")
+        return [
+            ("slot targets follow the emotion shares", reported == expected, f"reported {reported}, expected {expected}"),
+            ("each song's matchedEmotion matches the filled slots", filled_ok,
+             f"matched {matched}, filled {{{', '.join(a['emotion'] + ': ' + str(a['filledSlots']) for a in alloc)}}}"),
+            ("dominant share listed first", seq == sorted(seq), f"order {[t.get('matchedEmotion') for t in recs]}"),
+            ("unfilled shares are warned", all(a["emotion"] in warnings for a in shortfalls),
+             f"shortfalls {[a['emotion'] for a in shortfalls]}" if shortfalls else "no shortfall"),
+            ("LLM song-selection fallback is flagged", isinstance(llm_flag, bool) and (llm_flag or "song selection" in warnings),
+             f"llmSongSelection={llm_flag}"),
+        ]
+
     # ── TEXT mode ────────────────────────────────────────────────
 
     TEXT_CASES = [
@@ -282,6 +330,7 @@ class Suite:
         ]
         checks += self.raga_check(d.get("ragaSelection"), detected)
         checks += self.distribution_checks(d)
+        checks += self.emotion_split_checks(d)
         checks += self.track_checks(d.get("recommendations") or [])
         observed = (f"roles {correct}/{len(truth)}; uncertain={d.get('speakerAssignmentUncertain')}; "
                     f"patient emotions {emotions}; arousal {prof.get('arousalLevel')} @ {prof.get('meanPitchHz')} Hz; "
@@ -464,6 +513,7 @@ class Suite:
                 detected = [(d.get("analysis") or {}).get("primaryEmotionalState")] + [sg["primaryEmotion"] for sg in segs]
                 checks += self.raga_check(d.get("ragaSelection"), [x for x in detected if x])
                 checks += self.distribution_checks(d)
+                checks += self.emotion_split_checks(d)
                 checks += self.track_checks(d.get("recommendations") or [])
                 observed = (f"roles {acc:.0%} ({correct}/{len(turns)}), uncertain={uncertain}; "
                             f"dominant {var.get('dominantEmotion')} {var.get('emotionDistribution')}; "

@@ -96,6 +96,13 @@ export default function RecommendationList({ data }) {
             </span>
           </div>
           <p className="text-sm text-gray-300">{audioProfile.rationale}</p>
+          {emotion.speech_emotion && (
+            <p className="text-xs text-sky-300 mt-1">
+              🗣 Voice sounds {emotion.speech_emotion.label} ({Math.round((emotion.speech_emotion.confidence ?? 0) * 100)}%)
+              {emotion.text_emotion && emotion.text_emotion !== emotion.primary_emotion
+                ? ` — words said ${emotion.text_emotion}` : ""}
+            </p>
+          )}
           {emotion.fusion_note && (
             <p className="text-xs text-gray-500 italic mt-1">{emotion.fusion_note}</p>
           )}

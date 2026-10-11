@@ -1,0 +1,438 @@
+{
+  "name" : "synthetic-tts-v1",
+  "source" : "synthetic-tts",
+  "runAt" : "2026-10-12T00:38:02.203100800",
+  "recordingsTotal" : 7,
+  "recordingsCompleted" : 7,
+  "pitchRoleAccuracy" : 0.9524,
+  "pitchReliableRate" : 0.7143,
+  "voiceprintRoleAccuracy" : 0.932,
+  "voiceprintReliableRate" : 0.7143,
+  "textOnlyAccuracy" : 0.8519,
+  "voiceOnlyAccuracy" : 0.4,
+  "voiceScoredResponses" : 15,
+  "patientResponses" : 27,
+  "fusedAccuracyByWeight" : {
+    "0.0" : 0.8519,
+    "0.3" : 0.8519,
+    "0.5" : 0.6296,
+    "1.0" : 0.1111
+  },
+  "textFallbackResponses" : 0,
+  "recordings" : [ {
+    "id" : "real_hindi_male_consultant_female_patient",
+    "error" : null,
+    "turns" : 8,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : true,
+    "voiceprintRoleAccuracy" : 1.0,
+    "voiceprintReliable" : true,
+    "responses" : [ {
+      "text" : "सच कहूँ तो बहुत तनाव में हूँ। ऑफिस में काम इतना ज़्यादा है कि रात को नींद ही नहीं आती, दिल घबराता रहता है।",
+      "goldEmotion" : "STRESS",
+      "textEmotion" : "STRESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9036,
+      "fusedByWeight" : {
+        "0.0" : "STRESS",
+        "0.3" : "STRESS",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "नहीं, मैं अकेली रहती हूँ। कभी कभी इतना अकेलापन लगता है कि बस रोना आ जाता है।",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "SADNESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9372,
+      "fusedByWeight" : {
+        "0.0" : "SADNESS",
+        "0.3" : "SADNESS",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "पिछले महीने गाँव गई थी, माँ के हाथ का खाना खाया, बचपन की गलियों में घूमी। वो दिन बहुत याद आते हैं।",
+      "goldEmotion" : "NOSTALGIA",
+      "textEmotion" : "NOSTALGIA",
+      "textConfidence" : 0.85,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.6427,
+      "fusedByWeight" : {
+        "0.0" : "NOSTALGIA",
+        "0.3" : "NOSTALGIA",
+        "0.5" : "NOSTALGIA",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "ठीक है, आपसे बात करके थोड़ा हल्का महसूस हो रहा है।",
+      "goldEmotion" : "CALM",
+      "textEmotion" : "RELAXATION",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.7973,
+      "fusedByWeight" : {
+        "0.0" : "RELAXATION",
+        "0.3" : "RELAXATION",
+        "0.5" : "RELAXATION",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_indian_english_male_consultant_female_patient",
+    "error" : null,
+    "turns" : 6,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : true,
+    "voiceprintRoleAccuracy" : 1.0,
+    "voiceprintReliable" : true,
+    "responses" : [ {
+      "text" : "Honestly, terrible. My manager shouted at me in front of the whole team and I was so angry I could not even speak.",
+      "goldEmotion" : "ANGER",
+      "textEmotion" : "ANGER",
+      "textConfidence" : 0.95,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9281,
+      "fusedByWeight" : {
+        "0.0" : "ANGER",
+        "0.3" : "ANGER",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "I went home and kept replaying it. Yaar, I am so frustrated, I work so hard and nobody notices.",
+      "goldEmotion" : "FRUSTRATION",
+      "textEmotion" : "FRUSTRATION",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9399,
+      "fusedByWeight" : {
+        "0.0" : "FRUSTRATION",
+        "0.3" : "FRUSTRATION",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Music helps. Last night I listened to old songs on the balcony and finally felt relaxed for a while.",
+      "goldEmotion" : "RELAXATION",
+      "textEmotion" : "RELAXATION",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9588,
+      "fusedByWeight" : {
+        "0.0" : "RELAXATION",
+        "0.3" : "RELAXATION",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_two_male_voices",
+    "error" : null,
+    "turns" : 6,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : false,
+    "voiceprintRoleAccuracy" : 0.6667,
+    "voiceprintReliable" : false,
+    "responses" : [ {
+      "text" : "बिल्कुल अच्छी नींद नहीं आ रही। हर समय चिंता लगी रहती है कि नौकरी चली जाएगी।",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "ANXIETY",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "happy",
+      "voiceConfidence" : 0.8907,
+      "fusedByWeight" : {
+        "0.0" : "ANXIETY",
+        "0.3" : "ANXIETY",
+        "0.5" : "ANXIETY",
+        "1.0" : "JOY"
+      }
+    }, {
+      "text" : "दो महीने पहले कंपनी में छँटनी हुई थी। तब से डर लगता है और मन उदास रहता है।",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "SADNESS",
+      "textConfidence" : 0.85,
+      "voiceEmotion" : "happy",
+      "voiceConfidence" : 0.7331,
+      "fusedByWeight" : {
+        "0.0" : "SADNESS",
+        "0.3" : "SADNESS",
+        "0.5" : "SADNESS",
+        "1.0" : "JOY"
+      }
+    }, {
+      "text" : "जी, धन्यवाद। उम्मीद है धीरे धीरे सब ठीक होगा।",
+      "goldEmotion" : "CALM",
+      "textEmotion" : "CALM",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "neutral",
+      "voiceConfidence" : 0.3966,
+      "fusedByWeight" : {
+        "0.0" : "CALM",
+        "0.3" : "CALM",
+        "0.5" : "CALM",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_two_female_voices",
+    "error" : null,
+    "turns" : 6,
+    "pitchRoleAccuracy" : 0.6667,
+    "pitchReliable" : false,
+    "voiceprintRoleAccuracy" : 1.0,
+    "voiceprintReliable" : false,
+    "responses" : [ {
+      "text" : "I am very anxious today. My daughter's exams are next week and I keep worrying about everything.",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "ANXIETY",
+      "textConfidence" : 0.95,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.4508,
+      "fusedByWeight" : {
+        "0.0" : "ANXIETY",
+        "0.3" : "ANXIETY",
+        "0.5" : "ANXIETY",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Nothing really. I miss the days when I used to paint and sing. I felt so happy back then.",
+      "goldEmotion" : "NOSTALGIA",
+      "textEmotion" : "NOSTALGIA",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9596,
+      "fusedByWeight" : {
+        "0.0" : "NOSTALGIA",
+        "0.3" : "NOSTALGIA",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Yes, I would love that. Just talking about it makes me smile.",
+      "goldEmotion" : "JOY",
+      "textEmotion" : "JOY",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9489,
+      "fusedByWeight" : {
+        "0.0" : "JOY",
+        "0.3" : "JOY",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_long_emotional_arc",
+    "error" : null,
+    "turns" : 14,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : true,
+    "voiceprintRoleAccuracy" : 1.0,
+    "voiceprintReliable" : true,
+    "responses" : [ {
+      "text" : "I have been so anxious. Every morning my heart races before I even get out of bed.",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "ANXIETY",
+      "textConfidence" : 0.95,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.8812,
+      "fusedByWeight" : {
+        "0.0" : "ANXIETY",
+        "0.3" : "ANXIETY",
+        "0.5" : "ANXIETY",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Work, mostly. And I am nervous all the time that I will make a mistake and lose my job.",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "STRESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.916,
+      "fusedByWeight" : {
+        "0.0" : "STRESS",
+        "0.3" : "STRESS",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "My brother borrowed money and never returned it. I am really angry with him, we had a huge fight.",
+      "goldEmotion" : "ANGER",
+      "textEmotion" : "ANGER",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.8833,
+      "fusedByWeight" : {
+        "0.0" : "ANGER",
+        "0.3" : "ANGER",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "It is. After the fight I just cried. I feel lonely and sad, like nobody is on my side.",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "SADNESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.8702,
+      "fusedByWeight" : {
+        "0.0" : "SADNESS",
+        "0.3" : "SADNESS",
+        "0.5" : "SADNESS",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "When we were kids we used to fly kites on the terrace every Sankranti. I miss those days so much.",
+      "goldEmotion" : "NOSTALGIA",
+      "textEmotion" : "NOSTALGIA",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.7774,
+      "fusedByWeight" : {
+        "0.0" : "NOSTALGIA",
+        "0.3" : "NOSTALGIA",
+        "0.5" : "NOSTALGIA",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Maybe. Right now I still feel heavy and sad inside.",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "MELANCHOLY",
+      "textConfidence" : 0.85,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9176,
+      "fusedByWeight" : {
+        "0.0" : "MELANCHOLY",
+        "0.3" : "MELANCHOLY",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Okay. That feels a little calmer, thank you.",
+      "goldEmotion" : "CALM",
+      "textEmotion" : "CALM",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "neutral",
+      "voiceConfidence" : 0.6142,
+      "fusedByWeight" : {
+        "0.0" : "CALM",
+        "0.3" : "CALM",
+        "0.5" : "CALM",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_backchannel_turns",
+    "error" : null,
+    "turns" : 7,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : true,
+    "voiceprintRoleAccuracy" : 0.8571,
+    "voiceprintReliable" : true,
+    "responses" : [ {
+      "text" : "I had a panic attack at the mall. Everything was too loud and I could not breathe properly.",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "ANXIETY",
+      "textConfidence" : 0.95,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.7251,
+      "fusedByWeight" : {
+        "0.0" : "ANXIETY",
+        "0.3" : "ANXIETY",
+        "0.5" : "ANXIETY",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "My friend took me outside and after some time I felt better, but I was embarrassed and upset.",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "FRUSTRATION",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9356,
+      "fusedByWeight" : {
+        "0.0" : "FRUSTRATION",
+        "0.3" : "FRUSTRATION",
+        "0.5" : "ANGER",
+        "1.0" : "ANGER"
+      }
+    }, {
+      "text" : "Now I am scared to go out again.",
+      "goldEmotion" : "ANXIETY",
+      "textEmotion" : "ANXIETY",
+      "textConfidence" : 0.95,
+      "voiceEmotion" : "angry",
+      "voiceConfidence" : 0.9369,
+      "fusedByWeight" : {
+        "0.0" : "ANXIETY",
+        "0.3" : "ANXIETY",
+        "0.5" : "ANXIETY",
+        "1.0" : "ANGER"
+      }
+    } ]
+  }, {
+    "id" : "real_hindi_noisy_phone",
+    "error" : null,
+    "turns" : 8,
+    "pitchRoleAccuracy" : 1.0,
+    "pitchReliable" : true,
+    "voiceprintRoleAccuracy" : 1.0,
+    "voiceprintReliable" : true,
+    "responses" : [ {
+      "text" : "सच कहूँ तो बहुत तनाव में हूँ। ऑफिस में काम इतना ज़्यादा है कि रात को नींद ही नहीं आती, दिल घबराता रहता है।",
+      "goldEmotion" : "STRESS",
+      "textEmotion" : "STRESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "happy",
+      "voiceConfidence" : 0.7974,
+      "fusedByWeight" : {
+        "0.0" : "STRESS",
+        "0.3" : "STRESS",
+        "0.5" : "STRESS",
+        "1.0" : "JOY"
+      }
+    }, {
+      "text" : "नहीं, मैं अकेली रहती हूँ। कभी कभी इतना अकेलापन लगता है कि बस रोना आ जाता है।",
+      "goldEmotion" : "SADNESS",
+      "textEmotion" : "SADNESS",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "happy",
+      "voiceConfidence" : 0.8632,
+      "fusedByWeight" : {
+        "0.0" : "SADNESS",
+        "0.3" : "SADNESS",
+        "0.5" : "SADNESS",
+        "1.0" : "JOY"
+      }
+    }, {
+      "text" : "पिछले महीने गाँव गई थी, माँ के हाथ का खाना खाया, बचपन की गलियों में घूमी। वो दिन बहुत याद आते हैं।",
+      "goldEmotion" : "NOSTALGIA",
+      "textEmotion" : "NOSTALGIA",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "happy",
+      "voiceConfidence" : 0.7996,
+      "fusedByWeight" : {
+        "0.0" : "NOSTALGIA",
+        "0.3" : "NOSTALGIA",
+        "0.5" : "NOSTALGIA",
+        "1.0" : "JOY"
+      }
+    }, {
+      "text" : "ठीक है, आपसे बात करके थोड़ा हल्का महसूस हो रहा है।",
+      "goldEmotion" : "CALM",
+      "textEmotion" : "CALM",
+      "textConfidence" : 0.9,
+      "voiceEmotion" : "neutral",
+      "voiceConfidence" : 0.6265,
+      "fusedByWeight" : {
+        "0.0" : "CALM",
+        "0.3" : "CALM",
+        "0.5" : "CALM",
+        "1.0" : "CALM"
+      }
+    } ]
+  } ],
+  "notes" : [ "These recordings are synthetic (text-to-speech). They check that the audio pipeline and this evaluation work; they are NOT evidence of how the voice-emotion model or voiceprints perform on real human speech. Record real conversations (with consent) for that — see evaluation/audio/README.md.", "Voice-only accuracy compares the voice model's 4 classes (neutral/happy/angry/sad) with the gold emotion collapsed onto them; responses whose gold emotion has no voice class (NOSTALGIA, STRESS, ANXIETY, LOVE) are excluded — 15 of 27 responses were scorable.", "Speaker separation is scored on the labelled turn boundaries, under the better cluster-to-role mapping." ]
+}

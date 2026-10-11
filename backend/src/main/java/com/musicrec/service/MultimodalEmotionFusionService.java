@@ -2,6 +2,7 @@ package com.musicrec.service;
 
 import com.musicrec.dto.AudioEmotionProfileDTO;
 import com.musicrec.dto.EmotionMetadata;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,6 +53,37 @@ public class MultimodalEmotionFusionService {
             textEmotion.setFusionNote("Audio and text signals were consistent — no intensity adjustment needed.");
         }
         return textEmotion;
+    }
+
+    /**
+     * Fuses the speech-emotion model's prediction from the voice with the text emotion
+     * (SpeechEmotionFusion). When the voice wins, the text label is kept as a secondary emotion so
+     * retrieval still considers it; the reason is appended to fusionNote either way.
+     *
+     * @param textConfidence confidence attributed to the text label (the text analysis has no per-call confidence)
+     * @param audioWeight    0 = words only, 1 = voice only
+     */
+    public EmotionMetadata fuseSpeechEmotion(EmotionMetadata emotion, com.musicrec.audio.SpeechEmotionClient.SpeechEmotion voice,
+                                             double textConfidence, double audioWeight) {
+        String textLabel = emotion.getPrimaryEmotionSafe();
+        com.musicrec.audio.SpeechEmotionFusion.Fused fused =
+                com.musicrec.audio.SpeechEmotionFusion.fuse(textLabel, textConfidence, voice, audioWeight);
+        emotion.setTextEmotion(textLabel);
+        emotion.setSpeechEmotion(voice);
+        emotion.setEmotionSource(fused.source());
+        if (!fused.label().equals(textLabel)) {
+            emotion.setPrimaryEmotion(fused.label());
+            List<String> secondary = new java.util.ArrayList<>();
+            secondary.add(textLabel);
+            if (emotion.getSecondaryEmotions() != null) {
+                emotion.getSecondaryEmotions().stream().filter(s -> !s.equals(fused.label()) && !s.equals(textLabel))
+                        .forEach(secondary::add);
+            }
+            emotion.setSecondaryEmotions(secondary);
+        }
+        String previous = emotion.getFusionNote();
+        emotion.setFusionNote((previous == null || previous.isBlank() ? "" : previous + " ") + fused.note());
+        return emotion;
     }
 
     private boolean isHighArousalEmotion(String emotion) {

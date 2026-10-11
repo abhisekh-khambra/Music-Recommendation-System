@@ -14,6 +14,7 @@ import com.musicrec.entity.Track;
 import com.musicrec.repository.ChatHistoryRepository;
 import com.musicrec.repository.UserRepository;
 import com.musicrec.service.ConversationAnalysisService;
+import com.musicrec.service.ConversationPipelineService;
 import com.musicrec.service.EmotionAnalysisService;
 import com.musicrec.service.MusicRecommendationService;
 import com.musicrec.service.RagaSelectionService;
@@ -57,20 +58,25 @@ class ConversationControllerReassignRolesTest {
             ChatHistoryRepository chatHistoryRepository,
             UserRepository userRepository) {
 
+        ConversationPipelineService pipeline = new ConversationPipelineService(
+                conversationAnalysisService,
+                emotionAnalysisService,
+                ragaSelectionService,
+                recommendationService,
+                mock(AcousticFeatureExtractor.class),
+                mock(AcousticEmotionAnalysisService.class),
+                chatHistoryRepository,
+                userRepository);
+        ReflectionTestUtils.setField(pipeline, "topNResults", 10);
+
         ConversationController controller = new ConversationController(
                 mock(SpeechToTextService.class),
                 conversationAnalysisService,
                 mock(SpeakerRoleResolver.class),
-                emotionAnalysisService,
-                ragaSelectionService,
-                recommendationService,
                 mock(AudioTranscodingService.class),
                 mock(AcousticFeatureExtractor.class),
-                mock(AcousticEmotionAnalysisService.class),
                 mock(SpeakerDiarizationService.class),
-                chatHistoryRepository,
-                userRepository);
-        ReflectionTestUtils.setField(controller, "topNResults", 10);
+                pipeline, mock(com.musicrec.audio.SpeechEmotionClient.class));
         return controller;
     }
 
@@ -97,9 +103,11 @@ class ConversationControllerReassignRolesTest {
 
         when(ragaSelectionService.selectRaga(any(EmotionMetadata.class), any(), eq(true)))
                 .thenReturn(RagaSelectionDTO.builder().raga("Yaman").warnings(List.of()).build());
+        when(ragaSelectionService.ragasPerEmotion(any(), eq(true)))
+                .thenReturn(new RagaSelectionService.RagaPerEmotion(java.util.Map.of(), List.of()));
 
         TrackDTO trackDTO = TrackDTO.from(hindiTrack(1L));
-        when(recommendationService.recommend(any(EmotionMetadata.class), anyString(), eq(true)))
+        when(recommendationService.recommend(any(EmotionMetadata.class), anyString(), eq(true), any()))
                 .thenReturn(new MusicRecommendationService.RankingResult(List.of(trackDTO), "message"));
 
         ConversationController controller = newController(

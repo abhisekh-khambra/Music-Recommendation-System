@@ -152,6 +152,50 @@ public class RagaSelectionService {
                 .build();
     }
 
+    /** One raga per emotion share (emotion → raga, in distribution order) plus warnings for emotions left without one. */
+    public record RagaPerEmotion(Map<String, String> ragaByEmotion, List<String> warnings) {}
+
+    /**
+     * Picks a raga for EACH emotion in the patient's distribution ("multiple emotions, multiple
+     * raagas"): the first raga RagaRasaCatalog associates with that emotion that has catalogued
+     * tracks (Hindi tracks when restrictToHindi). For acute-distress emotions an intensifying raga
+     * (e.g. Malkauns) is only used when no calming raga has tracks. Emotions with no such raga are
+     * left out and named in the warnings.
+     */
+    public RagaPerEmotion ragasPerEmotion(Map<String, Double> emotionDistribution, boolean restrictToHindi) {
+        Map<String, String> byEmotion = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
+        if (emotionDistribution == null) return new RagaPerEmotion(byEmotion, warnings);
+
+        for (String emotion : emotionDistribution.keySet()) {
+            String e = emotion.toUpperCase();
+            List<String> candidates = ACUTE_DISTRESS_STATES.contains(e)
+                    ? RagaRasaCatalog.ragasForEmotionsExcludingCaution(List.of(e))
+                    : RagaRasaCatalog.ragasForEmotions(List.of(e));
+            Optional<String> chosen = firstWithTracks(candidates, restrictToHindi);
+            if (chosen.isEmpty() && ACUTE_DISTRESS_STATES.contains(e)) {
+                chosen = firstWithTracks(RagaRasaCatalog.ragasForEmotions(List.of(e)), restrictToHindi);
+            }
+            if (chosen.isPresent()) {
+                byEmotion.put(e, chosen.get());
+            } else {
+                warnings.add(e + " has no traditionally associated raga with " + (restrictToHindi ? "Hindi " : "")
+                        + "tracks in the catalogue yet — its share of the playlist is matched by emotion only.");
+            }
+        }
+        return new RagaPerEmotion(byEmotion, warnings);
+    }
+
+    private Optional<String> firstWithTracks(List<String> ragas, boolean restrictToHindi) {
+        return ragas.stream().filter(r -> tracksIn(r, restrictToHindi) > 0).findFirst();
+    }
+
+    private int tracksIn(String raga, boolean restrictToHindi) {
+        return restrictToHindi
+                ? trackRepository.findByRagaInAndLanguageIgnoreCaseOrderByPopularityDesc(List.of(raga), "Hindi").size()
+                : trackRepository.findByRagaInOrderByPopularityDesc(List.of(raga)).size();
+    }
+
     private String buildReason(String primary, double intensity, String raga, String rasa,
                                 String description, boolean acuteHighIntensity) {
         String intensityPct = Math.round(intensity * 100) + "%";

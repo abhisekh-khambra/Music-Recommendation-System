@@ -6,6 +6,7 @@ import ConversationInput from "./components/ConversationInput";
 import RecommendationList from "./components/RecommendationList";
 import ConversationResult from "./components/ConversationResult";
 import ChatInterface from "./components/ChatInterface";
+import PlaylistPanel from "./components/PlaylistPanel";
 import {
   getTextRecommendation,
   getVoiceRecommendation,
@@ -33,6 +34,8 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [conversationResult, setConversationResult] = useState(null);
   const [history, setHistory] = useState([]);
+  // Where audio input's emotion comes from: the words, the voice, or both fused.
+  const [emotionSource, setEmotionSource] = useState("FUSED");
 
   // Refresh chat history after every successful recommendation
   const refreshHistory = useCallback(async () => {
@@ -66,7 +69,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getVoiceRecommendation(blob, sessionId);
+      const data = await getVoiceRecommendation(blob, sessionId, emotionSource);
       setResult(data);
       await refreshHistory();
     } catch (err) {
@@ -74,13 +77,13 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId, refreshHistory]);
+  }, [sessionId, refreshHistory, emotionSource]);
 
   const handleConversationAudioReady = useCallback(async (audioFile) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getConversationAnalysis(audioFile, sessionId);
+      const data = await getConversationAnalysis(audioFile, sessionId, emotionSource);
       setConversationResult(data);
       await refreshHistory();
     } catch (err) {
@@ -88,7 +91,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId, refreshHistory]);
+  }, [sessionId, refreshHistory, emotionSource]);
 
   // ── Req. #2: user-driven speaker-role correction (no audio re-upload) ──
   const handleRoleCorrection = useCallback(async (correctedTurns) => {
@@ -153,6 +156,29 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            {/* Emotion source for audio input */}
+            {tab !== "text" && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-400 mb-1.5">Detect emotion from</p>
+                <div className="flex gap-1 bg-gray-800/60 rounded-lg p-1">
+                  {[
+                    { id: "TEXT", label: "Words" },
+                    { id: "VOICE", label: "Voice" },
+                    { id: "FUSED", label: "Words + voice" },
+                  ].map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => setEmotionSource(o.id)}
+                      className={`flex-1 py-1 text-xs rounded-md transition-all
+                        ${emotionSource === o.id ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Input component */}
             {tab === "text" && (
@@ -257,6 +283,8 @@ export default function App() {
           {!loading && tab !== "conversation" && result && (
             <RecommendationList data={result} />
           )}
+
+          <PlaylistPanel sessionId={sessionId} refreshKey={history.length} />
         </section>
       </main>
 

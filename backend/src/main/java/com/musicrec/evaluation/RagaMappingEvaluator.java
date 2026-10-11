@@ -63,6 +63,31 @@ public final class RagaMappingEvaluator {
     }
 
     /**
+     * Top-k accuracy when each case has a SET of acceptable ragas (several ragas are traditionally
+     * appropriate for one emotional state): a case counts as correct if any of the system's first k
+     * ranked ragas is in that case's acceptable set. k=1 gives Top-1 accuracy. Cases with an empty
+     * acceptable set count as incorrect — no raga could be right for them.
+     */
+    public static double topKAccuracyAnyOf(List<List<String>> rankedRagaLists,
+                                           List<? extends Collection<String>> acceptableRagas, int k) {
+        if (rankedRagaLists.size() != acceptableRagas.size()) {
+            throw new IllegalArgumentException("rankedRagaLists and acceptableRagas must be the same length");
+        }
+        if (rankedRagaLists.isEmpty()) return 0.0;
+        long correct = 0;
+        for (int i = 0; i < rankedRagaLists.size(); i++) {
+            if (hitAtK(rankedRagaLists.get(i), acceptableRagas.get(i), k)) correct++;
+        }
+        return Math.round((double) correct / rankedRagaLists.size() * 10000.0) / 10000.0;
+    }
+
+    /** True if any of the first k ranked ragas is in the acceptable set (case-insensitive). */
+    public static boolean hitAtK(List<String> rankedRagas, Collection<String> acceptable, int k) {
+        return rankedRagas.stream().limit(k)
+                .anyMatch(r -> acceptable.stream().anyMatch(a -> a.equalsIgnoreCase(r)));
+    }
+
+    /**
      * Top-k accuracy: fraction of cases where the expected raga appears anywhere in the
      * system's ranked candidate list (e.g. RagaSelectionDTO.alternateRagas prefixed with
      * the chosen raga) within the first k entries.

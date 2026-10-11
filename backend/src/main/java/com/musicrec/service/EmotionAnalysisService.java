@@ -128,6 +128,12 @@ public class EmotionAnalysisService {
     public record SegmentEmotion(int index, String primaryEmotion, double intensity, double confidence) {}
 
     /**
+     * Confidence given to a segment whose emotion came from the keyword fallback rather than the LLM
+     * (LLM failure, rate limit, unrecognised label) — EvaluationService uses it to flag such cases.
+     */
+    public static final double KEYWORD_FALLBACK_CONFIDENCE = 0.3;
+
+    /**
      * Analyzes emotion for each of several short text segments independently, in a single
      * LLM call (rather than one call per segment) — used to build the segment-level emotional
      * variability profile for the conversation pipeline without per-segment LLM cost blowup.
@@ -157,7 +163,7 @@ public class EmotionAnalysisService {
                     // Unrecognised label: fall back to keyword detection for this segment, with low confidence
                     log.warn("Segment {} returned unrecognised emotion label '{}' — using keyword fallback", index, raw);
                     EmotionMetadata m = keywordFallback(segmentTexts.get(index));
-                    results.add(new SegmentEmotion(index, m.getPrimaryEmotionSafe(), m.getIntensity(), 0.3));
+                    results.add(new SegmentEmotion(index, m.getPrimaryEmotionSafe(), m.getIntensity(), KEYWORD_FALLBACK_CONFIDENCE));
                 } else {
                     results.add(new SegmentEmotion(index, emotion.get(), intensity, confidence));
                 }
@@ -175,7 +181,7 @@ public class EmotionAnalysisService {
             List<SegmentEmotion> fallback = new ArrayList<>();
             for (int i = 0; i < segmentTexts.size(); i++) {
                 EmotionMetadata m = keywordFallback(segmentTexts.get(i));
-                fallback.add(new SegmentEmotion(i, m.getPrimaryEmotionSafe(), m.getIntensity(), 0.3));
+                fallback.add(new SegmentEmotion(i, m.getPrimaryEmotionSafe(), m.getIntensity(), KEYWORD_FALLBACK_CONFIDENCE));
             }
             return fallback;
         }

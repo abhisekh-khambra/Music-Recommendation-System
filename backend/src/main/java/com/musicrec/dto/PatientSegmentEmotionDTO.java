@@ -19,10 +19,25 @@ public class PatientSegmentEmotionDTO {
     private long endMs;
     private String text;
 
-    /** Text-based prediction (EmotionAnalysisService.analyzeBatch). */
+    /**
+     * The emotion used for this response: the text prediction fused with the voice prediction when a
+     * voice emotion was available (SpeechEmotionFusion), otherwise the text prediction.
+     */
     private String primaryEmotion;
     private double intensity;
+    /** Confidence of the text prediction. */
     private double confidence;
+
+    /** Text-based prediction from the words (EmotionAnalysisService.analyzeBatch). */
+    private String textEmotion;
+
+    /** Speech-emotion model's prediction from the voice (neutral/happy/angry/sad), null when unavailable. */
+    private String voiceEmotion;
+    private Double voiceEmotionConfidence;
+
+    /** "text" or "text+audio" — what primaryEmotion was derived from. */
+    private String emotionSource;
+    private String fusionNote;
 
     /** Audio-based signal for the same time window, or null if acoustic analysis wasn't available. */
     private String audioArousalLevel;

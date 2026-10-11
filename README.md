@@ -157,21 +157,32 @@ Conversation audio (Health Consultant + Patient)
      padding with non-Hindi tracks (see Hindi-only section below)
    │
    ▼
+[8] EMOTION-SHARE SPLIT OF THE TOP 10 (pure code)   EmotionQuotaAllocator
+   → the Top 10 is divided across the patient's emotions in proportion to their share
+     of the responses (largest-remainder rounding): 50% SADNESS / 30% NOSTALGIA /
+     20% CALM → 5 / 3 / 2 songs, dominant emotion first. A song fills a share if that is
+     its primary emotion (first pass) or a secondary emotion (second pass); each song
+     carries `matchedEmotion`, and the split is returned as `emotionAllocation`.
+     Every emotion in the distribution also gets its own retrieval source, so the
+     fused pool has candidates for each share. If the Hindi catalogue can't fill a
+     share, the gap is filled with the next-best matches and stated in `warnings`
+   │
+   ▼
 Transcript with speaker turns (timestamped) + audio-based arousal profile +
 per-segment emotional-variability profile with dominant emotion and distribution +
 non-diagnostic analysis + selected Raga & coverage reason + ranked Hindi-only
-top-10 songs + per-track explanations
+top-10 songs split by emotion share + per-track explanations
 ```
 
 The only LLM calls are stage-1 transcription, stage-3 role labeling, and stage-4's one batched per-segment emotion call (plus the shared SELECT call in stage 7); diarization, acoustic arousal, variability aggregation, Raga selection, and the Hindi-only filter are all deterministic code.
 
 **Known limitation — acoustic diarization quality depends on the recording.** The 2-means clustering over pitch/energy works well when the two speakers have reasonably distinct vocal registers and the recording is more than a few seconds — it's a lightweight, explainable technique (no `pyannote.audio` or other trained diarization model), not state-of-the-art diarization. `SpeakerDiarizationService` reports `reliable=false` rather than a confident-looking but wrong split when the clusters overlap (centroid distance vs. within-cluster spread), when their mean pitch differs by less than 1.2×, or when one "speaker" is a single segment; `ConversationController` then falls back to per-segment text-role labels and says so in `warnings`/`diarizationMethod`, and the user can correct roles via `/conversation/reassign-roles`. In testing, male/female pairs (including noisy, phone-band audio) separated confidently and correctly, while **two speakers of the same gender are flagged uncertain rather than separated** — separating those would need a speaker-embedding model, not pitch.
 
-**Known limitation — acoustic arousal, not full audio emotion recognition.** Pitch variability + energy reliably indicate *arousal* (how vocally intense speech sounds), not *valence* or a specific emotion category — `AudioEmotionProfileDTO.limitations` states this on every response. Arousal from a single clip has no per-speaker baseline, so only *relative* comparisons are reliable (excited speech scores above calm speech from the same voice); absolute levels can read HIGH for naturally expressive voices. The system never lets the acoustic signal override the text-based emotion category; `MultimodalEmotionFusionService`/the conversation controller only use it to nudge intensity (with the adjustment always recorded in `fusionNote`) or flag a text/audio disagreement.
+**Emotion from the voice: a speech-emotion model, fused with the words.** Besides pitch/energy arousal, voice and conversation input go through a local speech-emotion service (`ser-service/`: wav2vec2 trained on IEMOCAP, 4 classes neutral/happy/angry/sad, plus WavLM speaker voiceprints). Each response's emotion is a weighted fusion of the words and the voice. Requests choose `emotionSource=TEXT|VOICE|FUSED`; FUSED uses voice weight 0.3 (`app.ser.audio-weight`). **Known limitation:** on the project's synthetic test audio the voice model scored 40% (4 classes) against 85% for the words, and fusion above 0.3 lowered accuracy. That's why the default lets the voice decide only when the words are ambiguous. Real recordings are needed to judge it (see `evaluation/audio/README.md`). Without the service, the system falls back to words + arousal and says so in `warnings`.
 
 **Known limitation — ffmpeg is a new external prerequisite.** There's no pure-Java decoder for WebM/Opus or MP3, so `AudioTranscodingService` shells out to `ffmpeg` (configurable via `app.audio.ffmpeg-path`) rather than pulling in a large native-binary-bundling Maven dependency. Set its location with the `FFMPEG_PATH` environment variable (the `application.yml` default is the WinGet install path on the original development machine, so on any other machine set `FFMPEG_PATH`, or `app.audio.ffmpeg-path`). If `ffmpeg` can't be run, acoustic analysis and diarization degrade gracefully to text-only (a warning is added to the response) — transcription itself is unaffected, since Whisper decodes audio server-side on Groq's end, not locally.
 
-**Known limitation — small instrumental raga catalogue, now supplemented with Hindi vocal tracks.** The original ~22 purely-instrumental raga recordings (`language='Instrumental'`, no lyrics) are NOT eligible for the Hindi-only conversation pipeline's final list — they still inform raga selection (every raga's rasa/description/reason is unchanged) but can't appear in a Hindi-restricted Top-10. To make raga-based Hindi results achievable, `data.sql` now also includes a handful of real Hindi FILM songs with a commonly-cited raga basis (Albela Sajan → Bhairav, Tadap Tadap → Malkauns, Silsila Ye Chaahat Ka → Yaman, Man Mohana → Darbari Kanada) — attribution drawn from composer-interview/film-music-journalism sources, not an independently verified musicological study, same caveat as `RagaRasaCatalog` itself. Measured in the database: **only 4 of the 22 ragas (Yaman, Darbari Kanada, Malkauns, Bhairav) have any Hindi track, and 47 of the 51 Hindi tracks have no raga tag**, so raga selection can only land on those four for Hindi output and most songs come from the shared emotion+metadata sources rather than an exact raga match. Raga tags must come from a verified source, so none were invented; tagging the existing Hindi songs is the most valuable data task.
+**Raga-tagged Hindi library.** The ~22 instrumental raga recordings can't appear in a Hindi-only Top 10, so Hindi film songs with a cited raga attribution were added: `database/raga_tagged_hindi_songs.json` keeps the source URL for each (mostly Wikipedia's *List of film songs based on ragas*), and `database/generate_raga_additions.py` turns it into idempotent SQL that `DataInitializer` applies on every startup, so existing databases pick it up without re-seeding. Now **17 of the 22 ragas have Hindi songs** (121 tracks, 76 Hindi). Todi, Marwa, Puriya Dhanashri, Shree and Hindol still have none, because no cited Hindi film song was found. The songs' mood annotations (emotion, valence, energy) are the developer's, and their popularity is a neutral 50, not a measured value.
 
 ## Hindi-only restriction (system-wide)
 
@@ -184,16 +195,45 @@ Enforcement happens centrally in `MusicRecommendationService`, not per-caller:
 - If fewer than `app.recommendation.top-n-results` (default 10) eligible Hindi tracks are found for a given profile, the response's `warnings` array says so explicitly (e.g. *"Only 4 verified Hindi-language track(s) matched... catalogue needs more eligible Hindi tracks..."*) and returns only the verified matches — it never pads the list with a non-Hindi track to hit 10.
 - `MusicRecommendationServiceHindiFilterTest` (backend) verifies this with a mocked pool where 5 of 7 candidates are English — the test asserts zero English tracks ever reach the final result, and a second test confirms the plain `recommend(emotion)` overload (used by text/voice) is Hindi-only by default too. Separate tests also prove a track with no language metadata, or a non-exact label (e.g. "Hinglish"), is excluded rather than assumed eligible.
 
-## Evaluation framework
+## Evaluation
 
-`com.musicrec.evaluation` provides two reusable metric calculators, scoped to what's actually required — Raga-level and song-level recommendation evaluation, including NDCG:
+The conversation pipeline is evaluated end to end on a labelled dataset of Health Consultant / Patient conversations (`evaluation/dataset/conversations.json`, 18 cases: English, Hinglish and Devanagari Hindi; single-emotion, mixed and high-variability conversations). Each Patient line is written to express the emotion in its label, so the expected emotion distribution and dominant emotion per case are known by construction.
 
-| Class | Metrics | For |
+`POST /api/v1/evaluation/run` (`EvaluationService`) feeds every case's speaker-labelled turns through `ConversationPipelineService` — the same code `/conversation/analyze` uses after diarization — and scores it at four levels:
+
+| Level | Metric | Definition |
 |---|---|---|
-| `RagaMappingEvaluator` | Top-1 accuracy, Top-k accuracy, and an agreement rate against `RagaRasaCatalog` | Raga-level recommendation evaluation. The agreement rate checks internal consistency with the documented reference table used by `RagaSelectionService` — **not** correctness against an independent expert-validated source (none exists in this project). Top-1/Top-k need real expected-Raga ground truth to produce a number. |
-| `RankingMetrics` | Precision@K, Recall@K (needs total-relevant count), NDCG@K | Song-level Top-10 ranking evaluation |
+| Emotion | Per-response accuracy | detected emotion of each Patient response = its label |
+| Emotion | Dominant-emotion accuracy | detected dominant emotion = expected |
+| Emotion | Distribution similarity | 1 − total variation distance between expected and detected emotion distributions |
+| Raga | Top-1 / Top-3 accuracy | selected raga (or the next two ranked alternates) is in the case's acceptable raga set |
+| Raga | Top-1, reachable cases | Top-1 over cases where at least one acceptable raga has Hindi tracks |
+| Songs | Precision@10, Recall@10, NDCG@10 | graded relevance per Hindi catalogue song (`RankingMetrics`) |
+| Songs | Emotion-share fidelity | similarity between the expected distribution and the playlist's emotion mix |
+| Overall | End-to-end accuracy | dominant emotion AND Top-1 raga both correct |
 
-**What's real here vs. what isn't:** the metric *arithmetic* is unit-tested against small, hand-computed examples (`RankingMetricsTest`, `RagaMappingEvaluatorTest`) — that verifies the formulas are implemented correctly. **No expert-validated Raga-mapping dataset or relevance-judgment set is wired into this project.** Per the project's own no-fabrication requirement, this README does not report any Top-k/Precision/NDCG number for the actual system, because none has been measured against real ground truth. To get a real, publishable number: call `RagaMappingEvaluator.top1Accuracy(...)` / `RankingMetrics.*` from a small driver fed with a real labeled dataset you supply or annotate.
+Song level also reports **song raga accuracy** (share of the Top 10 in an acceptable raga; untagged songs count as misses), **song emotion accuracy** and **genre accuracy** (only for cases with `expectedGenres` labels). The run is paced for Groq's free tier. A rate-limited case is retried once after 65 s, and the run stops early if cases keep falling back, which means the daily quota is used up.
+
+Each run writes `evaluation/results/eval-<timestamp>.json` (every case, every number) and `.md` (paper-ready tables). Run it with the backend up:
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/evaluation/run"                  # all cases (~5 min, ~3 Groq calls per case)
+curl -X POST "http://localhost:8080/api/v1/evaluation/run?caseIds=C02,C15"  # selected cases
+curl -X POST "http://localhost:8080/api/v1/evaluation/run-audio"            # audio: speaker separation + voice emotion
+```
+
+**Audio evaluation** (`AudioEvaluationService`) runs labelled recordings (`evaluation/audio/*.json`: turn times, roles, patient emotions) through the speech-emotion service. It scores speaker role accuracy for pitch vs voiceprint clustering, and emotion accuracy for words only, voice only and fused at voice weights 0 / 0.3 / 0.5 / 1. The bundled set is synthetic (text-to-speech) and flagged as such. `evaluation/audio/README.md` explains how to record and label real consented conversations instead of using YouTube.
+
+**Human labels** replace the automatic proxies when present. `python evaluation/tools/annotation.py export` writes CSV sheets: a blind second-annotator emotion sheet, an expert raga/genre sheet, and, with `--report`, a song-grading sheet. `import` writes them back into the dataset (`expectedRagas`, `expectedGenres`, `songJudgments`) and prints Cohen's kappa.
+
+**What the ground truth is, and isn't:**
+- **Raga labels** default to the ragas `RagaRasaCatalog` associates with the expected dominant emotion. This measures whether the pipeline gets from a conversation to an appropriate raga, not whether the raga–emotion mapping itself is right. A case can list `expectedRagas` (e.g. from a musicologist), which then replaces the catalogue-derived set; the report records which source each case used.
+- **Song relevance** is graded from catalogue metadata: primary emotion in the expected set = 2, secondary = 1, acceptable raga = +1. It's a proxy for human relevance judgments, and a generous one — most top-10 songs match an expected emotion by construction of the retrieval, so expect high Precision/NDCG; human-judged relevance would be the stronger result.
+- **Emotion labels** were written by the developer; a second annotator should confirm them before results are published.
+- **Audio is not evaluated** — cases are transcripts, so diarization and acoustic arousal are covered by the e2e suite instead.
+- Responses analysed by the keyword fallback (e.g. after a Groq rate limit) are counted per case and flagged in the report; re-run those cases. A full run needs roughly 60–80k Groq tokens, and the free tier allows 200k per day across all usage — if `casesWithKeywordFallback` is above 0, the numbers don't reflect the LLM pipeline. The count covers both keyword-fallback emotion analysis and song selection that fell back to rank order (`llmSongSelectionUsed`).
+
+The metric arithmetic (`RankingMetrics`, `RagaMappingEvaluator`, `EvaluationScoring`) is unit-tested against hand-computed examples, and a test checks the shipped dataset is valid.
 
 ## Project structure
 
@@ -206,7 +246,8 @@ backend/
     audio/         Pure-Java acoustic layer — AudioTranscodingService (ffmpeg), AcousticFeatureExtractor
                     (pitch/energy DSP), AcousticEmotionAnalysisService (rule-based arousal), SpeakerDiarizationService
                     (2-means acoustic clustering). No ML model anywhere in this package.
-    evaluation/    Raga-level and song-level metric calculators — see Evaluation framework section above
+    evaluation/    EvaluationService (dataset runner + report writer), EvaluationScoring (ground truth, relevance),
+                    RankingMetrics, RagaMappingEvaluator — see Evaluation section above
     dto/           Request/response/emotion/evidence/conversation/audio data shapes
     entity/        JPA entities (Track, User, ChatHistory)
     repository/    Spring Data JPA repositories
@@ -214,7 +255,7 @@ backend/
                     EmotionLabels — the 12 canonical emotion labels + variant correction
     config/        Spring AI (Groq) client config, CORS, DB seeding
     exception/     Global exception handler
-  src/test/java/com/musicrec/   Unit tests (77) — service/, audio/, controller/, reference/, evaluation/
+  src/test/java/com/musicrec/   Unit tests (171) — service/, audio/, controller/, reference/, evaluation/
   src/main/resources/application.yml   All runtime config (DB, Groq model, pool sizes, upload limits, ffmpeg path)
 
 frontend/
@@ -228,20 +269,30 @@ e2e/
   make_realistic_fixtures.py    Realistic test audio with neural voices (Hindi, Hinglish, same-gender, noisy, long arc)
   fixtures/, results/           Generated audio + ground-truth manifests, and run results (gitignored)
 
+evaluation/
+  dataset/conversations.json    Labelled Health Consultant / Patient conversations
+  audio/                        Labelled recordings for the audio evaluation + how to record real ones
+  annotation/                   CSV sheets for the second annotator / expert / song judges
+  tools/                        build_audio_manifest.py, annotation.py
+  results/                      Evaluation reports (JSON + Markdown), one pair per run
+
+ser-service/                    Local speech-emotion + voiceprint service (Python, FastAPI, wav2vec2 / WavLM)
+
 docs/
-  TEST_REPORT.md                Test results, defects found/fixed, limitations
-  PROFESSOR_REQUIREMENTS_AUDIT.md   Requirement-by-requirement compliance audit
+  ARCHITECTURE.md               Block diagram of the three input modes and the evaluation layer
+  PAPER_OUTLINE.md              Section-by-section outline of the paper, with the results so far
 
 database/
-  schema.sql       MySQL schema reference (data.sql, auto-loaded by DataInitializer, is the authoritative/current
-                    seed set — 96 tracks: 21 English, 51 Hindi (incl. the 32-track catalogue expansion described
-                    above), 24 instrumental Hindustani classical/raga; schema.sql itself is a stale manual
-                    reference, not kept byte-for-byte in sync)
+  raga_tagged_hindi_songs.json  Hindi film songs with a cited raga source (the source of truth)
+  generate_raga_additions.py    Turns it into backend/src/main/resources/data_raga_additions.sql
 ```
+
+Tables are created by Hibernate (`ddl-auto: update`). `backend/src/main/resources/data.sql` seeds an empty database
+(96 tracks), and `data_raga_additions.sql` adds the 25 raga-tagged songs on every startup (121 tracks, 76 Hindi).
 
 ## Running it
 
-**Prerequisites:** Java 17, Node 18+, MySQL running locally, a [Groq API key](https://console.groq.com), and **`ffmpeg`** (location set via `FFMPEG_PATH`) (for the conversation pipeline's acoustic analysis/diarization — see the "ffmpeg is a new external prerequisite" limitation above; everything else works without it).
+**Prerequisites:** Java 17, Node 18+, Python 3.11+ for the optional speech-emotion service (`ser-service/README.md`: setup, then `.venv/Scripts/python run.py`), MySQL running locally, a [Groq API key](https://console.groq.com), and **`ffmpeg`** (location set via `FFMPEG_PATH`) (for the conversation pipeline's acoustic analysis/diarization — see the "ffmpeg is a new external prerequisite" limitation above; everything else works without it).
 
 ```bash
 # 1. Database — schema auto-creates/updates via Hibernate on boot, and data.sql auto-seeds
@@ -269,7 +320,7 @@ npm start                    # or use start-frontend.bat
 
 DB connection defaults to `jdbc:mysql://localhost:3306/music_rec_db` (root, configurable via `DB_USERNAME`/`DB_PASSWORD` env vars). The Groq chat model, pool sizes (`candidate-pool-size`, `rerank-pool-size`, `top-n-results`), and the ffmpeg path (`app.audio.ffmpeg-path`) are all in `backend/src/main/resources/application.yml`.
 
-**Unit tests:** `cd backend && mvn test` runs 77 unit tests — Raga selection and distribution weighting, variability/dominant emotion, acoustic feature extraction and diarization (synthetic audio, including regression cases replaying values measured from real failures), emotion-label correction, malformed-LLM-reply handling, keyword fallback, audio-upload validation, guaranteed explanations, the evaluation metric arithmetic, and the Hindi-only guarantee. None need a DB, Groq key, or ffmpeg.
+**Unit tests:** `cd backend && mvn test` runs 171 unit tests — the emotion-share split of the Top 10 and its per-share ragas, speech-emotion fusion and client, voiceprint diarization, the audio and transcript evaluations, playlists, the cited raga library, Raga selection and distribution weighting, variability/dominant emotion, acoustic feature extraction and diarization (synthetic audio, including regression cases replaying values measured from real failures), emotion-label correction, malformed-LLM-reply handling, keyword fallback, audio-upload validation, guaranteed explanations, the evaluation metric arithmetic, and the Hindi-only guarantee. None need a DB, Groq key, or ffmpeg. The speech-emotion service has its own tests (`cd ser-service && .venv/Scripts/python -m pytest tests`, fake models), as does the annotation tool (`ser-service/.venv/Scripts/python -m pytest evaluation/tools`).
 
 **End-to-end tests:** with the backend running, generate test audio and run the suite against the live API:
 
@@ -281,7 +332,7 @@ python e2e/run_e2e.py --backend-log <path to backend log>          # all 36 scen
 python e2e/run_e2e.py --only realistic --backend-log <path>        # or one group: text, voice, conversation, realistic, system
 ```
 
-Every expected result is fixed before the run, and speaker roles are checked against ground-truth turn times. A full run takes ~25 minutes and ~150k Groq tokens; the free tier allows 200k tokens/day, so a second full run on the same day will hit the limit and fall back to keyword analysis. Results go to `e2e/results/`; see [docs/TEST_REPORT.md](docs/TEST_REPORT.md) for the latest results and analysis.
+Every expected result is fixed before the run, and speaker roles are checked against ground-truth turn times. A full run takes ~25 minutes and ~150k Groq tokens; the free tier allows 200k tokens/day, so a second full run on the same day will hit the limit and fall back to keyword analysis. Results go to `e2e/results/`.
 
 > **Note on Groq models:** Groq's available model catalog changes over time and models get deprecated. If you see `model_not_found` in the logs, run `GET https://api.groq.com/openai/v1/models` with your key to see what's currently available and update `spring.ai.openai.chat.options.model` in `application.yml`. If you land on a reasoning-style model (e.g. an `openai/gpt-oss-*` family model), keep `reasoning-effort: low` set — those models spend part of their token budget on hidden reasoning before the answer, and without a low effort setting they can burn through `max-tokens` before finishing the required JSON.
 
@@ -290,9 +341,12 @@ Every expected result is fixed before the run, and speaker roles are checked aga
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/v1/recommend/text` | `{ "message": "...", "sessionId"?: "..." }` → emotion + **Hindi-only** ranked tracks + explanations. |
-| POST | `/api/v1/recommend/voice` | multipart `audio` file → transcribed via Groq Whisper + acoustic arousal analysis, fused into one emotion profile (`emotion.audio_emotion_profile`, `emotion.fusion_note`), then same **Hindi-only** pipeline. HTTP 400 for non-audio, empty or silent uploads. |
-| POST | `/api/v1/conversation/analyze` | multipart `audio` file (Health Consultant + Patient conversation, max 25MB) → timestamped transcript + audio-diarized speaker turns + audio-based arousal profile + per-segment emotional-variability profile (`emotionalVariability.dominantEmotion`, `emotionalVariability.emotionDistribution`) + non-diagnostic patient analysis + selected Raga with coverage reason + **Hindi-only** top-10 Raga-based recommendations + `speakerAssignmentUncertain` flag. HTTP 400 for non-audio, empty or silent uploads. |
+| POST | `/api/v1/recommend/voice` | multipart `audio` file (+ optional `emotionSource=TEXT|VOICE|FUSED`) → transcribed via Groq Whisper + acoustic arousal analysis, fused into one emotion profile (`emotion.audio_emotion_profile`, `emotion.fusion_note`), then same **Hindi-only** pipeline. HTTP 400 for non-audio, empty or silent uploads. |
+| POST | `/api/v1/conversation/analyze` | multipart `audio` file (Health Consultant + Patient conversation, max 25MB, optional `emotionSource`) → timestamped transcript + audio-diarized speaker turns + audio-based arousal profile + per-segment emotional-variability profile (`emotionalVariability.dominantEmotion`, `emotionalVariability.emotionDistribution`) + non-diagnostic patient analysis + selected Raga with coverage reason + **Hindi-only** top-10 Raga-based recommendations split by emotion share (`emotionAllocation`, per-track `matchedEmotion`) + `speakerAssignmentUncertain` flag. HTTP 400 for non-audio, empty or silent uploads. |
 | POST | `/api/v1/conversation/reassign-roles` | `{ "sessionId", "turns": [{order, speakerRole, text, startMs, endMs}, ...] }` → recomputes patient text, emotion, Raga, and the Hindi-only Top 10 from the user's corrected speaker roles — no audio re-upload needed. |
+| POST | `/api/v1/evaluation/run-audio?manifest=` | audio evaluation on labelled recordings (needs the speech-emotion service). |
+| GET | `/api/v1/playlists/options`, `/playlists/history/{sessionId}`, `/playlists/artist?name=`, `/playlists/raga/{raga}` | playlists beyond the current mood: session history, a singer, a raga (Hindi only). |
+| POST | `/api/v1/evaluation/run?caseIds=&limit=` | runs the labelled conversation dataset through the pipeline and returns the evaluation report (also written to `evaluation/results/`). Long-running; uses Groq quota. |
 | GET | `/api/v1/history/{sessionId}` | past chat turns for a session (includes `selectedRaga`/`speakerTurns` for conversation-type entries) |
 | GET | `/api/v1/tracks?emotion=&language=` | browse the full track catalogue, optionally filtered |
 | GET | `/api/v1/health` | health check |

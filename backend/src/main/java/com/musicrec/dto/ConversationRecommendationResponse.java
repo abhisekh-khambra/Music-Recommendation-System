@@ -28,6 +28,9 @@ public class ConversationRecommendationResponse {
     /** Per-segment Patient emotion predictions + aggregated variability stats (req. #3). */
     private EmotionalVariabilityDTO emotionalVariability;
 
+    /** How each patient response's emotion was derived from the voice (speech-emotion model + fusion weight), or why not. */
+    private String speechEmotionMethod;
+
     /** Human-readable description of how speakers were separated (audio diarization vs. text fallback). */
     private String diarizationMethod;
 
@@ -40,6 +43,18 @@ public class ConversationRecommendationResponse {
 
     /** Top-N recommended tracks (with individual explanations). All guaranteed language=Hindi. */
     private List<TrackDTO> recommendations;
+
+    /**
+     * How the Top-N was split across the Patient's emotions — each emotion's share of the responses,
+     * the slots that share earned, and how many were filled with a matching song (EmotionQuotaAllocator).
+     */
+    private List<EmotionSlotDTO> emotionAllocation;
+
+    /**
+     * False when the LLM song-selection step was unavailable (e.g. Groq rate limit) and the songs are
+     * in fused-rank order with evidence-based explanations instead.
+     */
+    private boolean llmSongSelection;
 
     private String conversationalMessage;
 

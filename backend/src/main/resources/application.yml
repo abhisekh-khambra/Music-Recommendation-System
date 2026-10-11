@@ -89,6 +89,28 @@ app:
     # everything degrades gracefully to text-only analysis if ffmpeg isn't available.
     ffmpeg-path: ${FFMPEG_PATH:C:/Users/LENOVO/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe}
     transcode-timeout-seconds: 30
+  ser:
+    # Local speech-emotion service (ser-service/, Python): emotion from the voice + speaker voiceprints.
+    # Optional — when it isn't running, voice/conversation fall back to text + pitch analysis and say so.
+    url: ${SER_URL:http://127.0.0.1:8090}
+    enabled: true
+    timeout-seconds: 120
+    # Voice weight when fusing with the words: 0 = words only, 1 = voice only. Kept below 0.5 because the
+    # model (trained on acted English speech) was confidently wrong on the test audio; requests can still
+    # choose emotionSource=VOICE. See docs/ARCHITECTURE.md.
+    audio-weight: 0.3
+    voice-text-confidence: 0.6
+  evaluation:
+    # Labelled conversation dataset and report output for POST /api/v1/evaluation/run
+    # (paths relative to the backend/ directory the app is started from).
+    dataset-path: ${EVAL_DATASET_PATH:../evaluation/dataset/conversations.json}
+    results-dir: ${EVAL_RESULTS_DIR:../evaluation/results}
+    # Pause between cases to stay under Groq's per-minute token limit (8k TPM on the free tier;
+    # one case is ~3 LLM calls, ~5k tokens). A case that still hits a fallback is re-run once
+    # after the per-minute window resets.
+    delay-between-cases-ms: 30000
+    retry-wait-ms: 65000
+    max-attempts: 2
 
 # ── Logging ─────────────────────────────────────────────────────
 logging:

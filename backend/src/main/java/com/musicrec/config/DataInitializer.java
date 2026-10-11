@@ -43,9 +43,18 @@ public class DataInitializer implements CommandLineRunner {
             } else {
                 log.info("Database already has {} tracks — skipping seed.", trackCount);
             }
+
+            // Cited raga-tagged Hindi songs: every statement is idempotent, so this runs on every
+            // startup and an existing database picks up additions without being re-seeded.
+            try (java.sql.Connection connection = dataSource.getConnection()) {
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("data_raga_additions.sql"));
+            }
+            log.info("Raga-tagged additions applied: {} tracks, {} with a raga.",
+                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tracks", Integer.class),
+                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tracks WHERE raga IS NOT NULL", Integer.class));
         } catch (Exception e) {
             log.error("DataInitializer failed (non-fatal): {}", e.getMessage());
-            // Non-fatal: app continues; user can run schema.sql manually if needed
+            // Non-fatal: the app continues without seed data
         }
     }
 }

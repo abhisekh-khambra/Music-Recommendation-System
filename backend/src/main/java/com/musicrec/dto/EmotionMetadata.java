@@ -70,6 +70,18 @@ public class EmotionMetadata {
     @com.fasterxml.jackson.annotation.JsonProperty("fusion_note")
     private String fusionNote;
 
+    /** Voice input only: the speech-emotion model's prediction from the voice itself (neutral/happy/angry/sad). */
+    @com.fasterxml.jackson.annotation.JsonProperty("speech_emotion")
+    private com.musicrec.audio.SpeechEmotionClient.SpeechEmotion speechEmotion;
+
+    /** Voice input only: the emotion the words alone gave, before fusion with the voice. */
+    @com.fasterxml.jackson.annotation.JsonProperty("text_emotion")
+    private String textEmotion;
+
+    /** Voice input only: "text" or "text+audio" — what primary_emotion was derived from. */
+    @com.fasterxml.jackson.annotation.JsonProperty("emotion_source")
+    private String emotionSource;
+
     // ── Fallback defaults ────────────────────────────────────────
     public String getPrimaryEmotionSafe() {
         return (primaryEmotion != null && !primaryEmotion.isBlank())

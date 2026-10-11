@@ -3,6 +3,8 @@ package com.musicrec.controller;
 import com.musicrec.audio.AcousticEmotionAnalysisService;
 import com.musicrec.audio.AcousticFeatureExtractor;
 import com.musicrec.audio.AudioTranscodingService;
+import com.musicrec.audio.SpeechEmotionClient;
+import com.musicrec.audio.SpeechEmotionFusion;
 import com.musicrec.dto.AudioEmotionProfileDTO;
 import com.musicrec.dto.EmotionMetadata;
 import com.musicrec.dto.RecommendationRequest;
@@ -55,6 +57,15 @@ public class RecommendationController {
     private final AcousticFeatureExtractor acousticFeatureExtractor;
     private final AcousticEmotionAnalysisService acousticEmotionAnalysisService;
     private final MultimodalEmotionFusionService multimodalEmotionFusionService;
+    private final SpeechEmotionClient speechEmotionClient;
+
+    /** Voice weight when fusing the speech-emotion model with the words (0 = words only, 1 = voice only). */
+    @Value("${app.ser.audio-weight:0.3}")
+    private double audioWeight;
+
+    /** Confidence given to the text label of a voice message (the text analysis returns no confidence). */
+    @Value("${app.ser.voice-text-confidence:0.6}")
+    private double voiceTextConfidence;
 
     @Value("${app.recommendation.top-n-results:10}")
     private int topNResults;
@@ -121,8 +132,10 @@ public class RecommendationController {
     public ResponseEntity<RecommendationResponse> recommendByVoice(
             @RequestPart("audio") MultipartFile audioFile,
             @RequestParam(value = "sessionId", required = false) String sessionId,
-            @RequestParam(value = "userId", required = false) Long userId) {
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "emotionSource", required = false) String emotionSource) {
 
+        double weight = SpeechEmotionFusion.audioWeightFor(emotionSource, audioWeight);
         log.info("Voice recommendation request: session={}, audioSize={}",
                 sessionId, audioFile.getSize());
 
@@ -134,7 +147,8 @@ public class RecommendationController {
 
         // 0. Decode first: rejects non-audio and silent uploads before speech-to-text,
         //    which would otherwise fail with a 500 or hallucinate a transcript from silence.
-        List<AcousticFeatureExtractor.Frame> frames = decodeAndValidate(audioFile);
+        short[] pcm = decodeAndValidate(audioFile);
+        List<AcousticFeatureExtractor.Frame> frames = pcm == null ? null : acousticFeatureExtractor.analyze(pcm);
 
         // 1. Speech-to-text
         String transcript = speechToTextService.transcribe(audioFile);
@@ -145,6 +159,17 @@ public class RecommendationController {
         AudioEmotionProfileDTO audioProfile = frames == null ? null
                 : acousticEmotionAnalysisService.analyze(acousticFeatureExtractor.summarize(frames));
         EmotionMetadata emotion = multimodalEmotionFusionService.fuse(textEmotion, audioProfile);
+
+        // 2b. Emotion from the voice itself (speech-emotion model), fused with the words.
+        List<String> warnings = new java.util.ArrayList<>();
+        java.util.Optional<SpeechEmotionClient.Result> voice = pcm == null ? java.util.Optional.empty()
+                : speechEmotionClient.analyze(pcm, List.of(), false);
+        if (voice.isPresent() && voice.get().overall() != null) {
+            emotion = multimodalEmotionFusionService.fuseSpeechEmotion(emotion, voice.get().overall(), voiceTextConfidence, weight);
+        } else if (pcm != null) {
+            warnings.add("The voice emotion model (speech-emotion service) was unavailable — the emotion comes from "
+                    + "the words and vocal arousal only.");
+        }
 
         // 3. Retrieve → Fuse → Rerank (Hindi-only)
         MusicRecommendationService.RankingResult result = recommendationService.recommend(emotion);
@@ -159,7 +184,7 @@ public class RecommendationController {
                 .emotion(emotion)
                 .recommendations(result.tracks())
                 .conversationalMessage(result.conversationalMessage())
-                .warnings(insufficientResultsWarning(result))
+                .warnings(concat(warnings, insufficientResultsWarning(result)))
                 .sessionId(sessionId)
                 .timestamp(System.currentTimeMillis())
                 .build();
@@ -225,10 +250,11 @@ public class RecommendationController {
      * contains no voiced speech. Returns null only when ffmpeg itself is unavailable, in which
      * case the request continues with text-only analysis, as before.
      */
-    private List<AcousticFeatureExtractor.Frame> decodeAndValidate(MultipartFile audioFile) {
+    private short[] decodeAndValidate(MultipartFile audioFile) {
         List<AcousticFeatureExtractor.Frame> frames;
+        short[] pcm;
         try {
-            short[] pcm = audioTranscodingService.toPcm16Mono16k(audioFile.getBytes(), audioFile.getOriginalFilename());
+            pcm = audioTranscodingService.toPcm16Mono16k(audioFile.getBytes(), audioFile.getOriginalFilename());
             frames = acousticFeatureExtractor.analyze(pcm);
         } catch (AudioTranscodingService.UndecodableAudioException ex) {
             log.warn("Rejected voice upload that could not be decoded: {}", ex.getMessage());
@@ -240,7 +266,13 @@ public class RecommendationController {
         if (!AcousticFeatureExtractor.containsSpeech(frames)) {
             throw new InvalidAudioException("No speech was detected in the recording. Please check the microphone and try again.");
         }
-        return frames;
+        return pcm;
+    }
+
+    private static List<String> concat(List<String> a, List<String> b) {
+        List<String> out = new java.util.ArrayList<>(a);
+        out.addAll(b);
+        return out;
     }
 
     // ── Hindi-only warning helper ────────────────────────────────────

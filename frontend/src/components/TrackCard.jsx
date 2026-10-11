@@ -143,6 +143,17 @@ export default function TrackCard({ track, rank }) {
             <span className="emotion-badge bg-gray-700/60 text-gray-400 border border-gray-600">
               {track.language}
             </span>
+            {track.raga && (
+              <span className="emotion-badge bg-gray-700/60 text-gray-300 border border-gray-600">
+                Raga {track.raga}
+              </span>
+            )}
+            {track.matchedEmotion && (
+              <span className="emotion-badge bg-purple-900/40 text-purple-200 border border-purple-700/50"
+                    title="The patient emotion whose share of the playlist this song fills">
+                for {track.matchedEmotion}
+              </span>
+            )}
           </div>
         </div>
 

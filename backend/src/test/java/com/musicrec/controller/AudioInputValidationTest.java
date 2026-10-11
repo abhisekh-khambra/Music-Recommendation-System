@@ -9,6 +9,7 @@ import com.musicrec.repository.ChatHistoryRepository;
 import com.musicrec.repository.TrackRepository;
 import com.musicrec.repository.UserRepository;
 import com.musicrec.service.ConversationAnalysisService;
+import com.musicrec.service.ConversationPipelineService;
 import com.musicrec.service.EmotionAnalysisService;
 import com.musicrec.service.MultimodalEmotionFusionService;
 import com.musicrec.service.MusicRecommendationService;
@@ -45,15 +46,15 @@ class AudioInputValidationTest {
         return new RecommendationController(
                 mock(EmotionAnalysisService.class), mock(MusicRecommendationService.class), stt,
                 mock(ChatHistoryRepository.class), mock(UserRepository.class), mock(TrackRepository.class),
-                transcoder, extractor, new AcousticEmotionAnalysisService(), mock(MultimodalEmotionFusionService.class));
+                transcoder, extractor, new AcousticEmotionAnalysisService(), mock(MultimodalEmotionFusionService.class),
+                mock(com.musicrec.audio.SpeechEmotionClient.class));
     }
 
     private ConversationController conversationController() {
         return new ConversationController(
                 stt, mock(ConversationAnalysisService.class), mock(SpeakerRoleResolver.class),
-                mock(EmotionAnalysisService.class), mock(RagaSelectionService.class), mock(MusicRecommendationService.class),
-                transcoder, extractor, new AcousticEmotionAnalysisService(), new SpeakerDiarizationService(extractor),
-                mock(ChatHistoryRepository.class), mock(UserRepository.class));
+                transcoder, extractor, new SpeakerDiarizationService(extractor),
+                mock(ConversationPipelineService.class), mock(com.musicrec.audio.SpeechEmotionClient.class));
     }
 
     @Test
@@ -61,7 +62,7 @@ class AudioInputValidationTest {
         when(transcoder.toPcm16Mono16k(any(), anyString()))
                 .thenThrow(new AudioTranscodingService.UndecodableAudioException("Invalid data found when processing input"));
 
-        assertThatThrownBy(() -> voiceController().recommendByVoice(UPLOAD, null, null))
+        assertThatThrownBy(() -> voiceController().recommendByVoice(UPLOAD, null, null, null))
                 .isInstanceOf(InvalidAudioException.class);
         verify(stt, never()).transcribe(any());
     }
@@ -70,7 +71,7 @@ class AudioInputValidationTest {
     void voiceRejectsSilenceBeforeSpeechToText() {
         when(transcoder.toPcm16Mono16k(any(), anyString())).thenReturn(new short[16_000 * 3]);
 
-        assertThatThrownBy(() -> voiceController().recommendByVoice(UPLOAD, null, null))
+        assertThatThrownBy(() -> voiceController().recommendByVoice(UPLOAD, null, null, null))
                 .isInstanceOf(InvalidAudioException.class)
                 .hasMessageContaining("speech");
         verify(stt, never()).transcribe(any());
@@ -81,7 +82,7 @@ class AudioInputValidationTest {
         when(transcoder.toPcm16Mono16k(any(), anyString()))
                 .thenThrow(new AudioTranscodingService.TranscodingUnavailableException("ffmpeg not installed", null));
 
-        catchThrowable(() -> voiceController().recommendByVoice(UPLOAD, null, null)); // downstream mocks are empty
+        catchThrowable(() -> voiceController().recommendByVoice(UPLOAD, null, null, null)); // downstream mocks are empty
         verify(stt).transcribe(any());
     }
 
@@ -90,7 +91,7 @@ class AudioInputValidationTest {
         when(transcoder.toPcm16Mono16k(any(), anyString()))
                 .thenThrow(new AudioTranscodingService.UndecodableAudioException("Invalid data found when processing input"));
 
-        assertThatThrownBy(() -> conversationController().analyzeConversation(UPLOAD, null, null))
+        assertThatThrownBy(() -> conversationController().analyzeConversation(UPLOAD, null, null, null))
                 .isInstanceOf(InvalidAudioException.class);
         verify(stt, never()).transcribeWithSegments(any());
     }
@@ -99,7 +100,7 @@ class AudioInputValidationTest {
     void conversationRejectsSilenceBeforeSpeechToText() {
         when(transcoder.toPcm16Mono16k(any(), anyString())).thenReturn(new short[16_000 * 3]);
 
-        assertThatThrownBy(() -> conversationController().analyzeConversation(UPLOAD, null, null))
+        assertThatThrownBy(() -> conversationController().analyzeConversation(UPLOAD, null, null, null))
                 .isInstanceOf(InvalidAudioException.class)
                 .hasMessageContaining("speech");
         verify(stt, never()).transcribeWithSegments(any());
