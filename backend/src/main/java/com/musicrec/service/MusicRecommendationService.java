@@ -142,8 +142,13 @@ public class MusicRecommendationService {
 
     // ── Public API ────────────────────────────────────────────────
 
+    /**
+     * Hindi-only is now the system-wide default for every input modality (text, voice,
+     * conversation) — the language restriction is enforced here, not per-caller, so it
+     * can never be silently bypassed regardless of which controller calls this.
+     */
     public RankingResult recommend(EmotionMetadata emotion) {
-        return recommend(emotion, null);
+        return recommend(emotion, null, true);
     }
 
     /**
@@ -153,18 +158,41 @@ public class MusicRecommendationService {
      * driving which songs are even considered, not just one signal among many.
      */
     public RankingResult recommend(EmotionMetadata emotion, String primaryRaga) {
+        return recommend(emotion, primaryRaga, true);
+    }
+
+    /**
+     * @param restrictToHindi mandatory Hindi-only mode. When true, every retrieval source, the
+     *                        all-empty fallback, and the candidate pool handed to the LLM SELECT
+     *                        stage are pre-filtered to language=Hindi — so a non-Hindi track can
+     *                        never reach the final list. Defaults to true everywhere via the
+     *                        shorter overloads above; callers only need to pass false explicitly
+     *                        if they deliberately want the old unrestricted behavior (no caller
+     *                        currently does — the restriction is system-wide by design now).
+     */
+    public RankingResult recommend(EmotionMetadata emotion, String primaryRaga, boolean restrictToHindi) {
         // ── STEP 1: RETRIEVE ────────────────────────────────────────
         Map<String, List<Track>> sources = retrieve(emotion, primaryRaga);
 
-        long totalCandidates = sources.values().stream().mapToLong(List::size).sum();
-        log.info("RETRIEVE: {} candidates across {} sources for emotion={}",
-                totalCandidates, sources.size(), emotion.getPrimaryEmotion());
+        if (restrictToHindi) {
+            sources = filterToHindi(sources);
+        }
 
-        // Fallback: if every source is empty, use the full catalogue
+        long totalCandidates = sources.values().stream().mapToLong(List::size).sum();
+        log.info("RETRIEVE: {} candidates across {} sources for emotion={}{}",
+                totalCandidates, sources.size(), emotion.getPrimaryEmotion(),
+                restrictToHindi ? " (Hindi-only)" : "");
+
+        // Fallback: if every source is empty, use the full catalogue (or, in Hindi-only
+        // mode, the full Hindi-only catalogue — never falls back to non-Hindi tracks).
         boolean allEmpty = sources.values().stream().allMatch(List::isEmpty);
         if (allEmpty) {
-            log.warn("All retrieval sources empty — falling back to full catalogue");
-            List<Track> fallback = trackRepository.findAll().stream()
+            log.warn("All retrieval sources empty — falling back to {} catalogue",
+                    restrictToHindi ? "Hindi-only" : "full");
+            List<Track> fallback = (restrictToHindi
+                        ? trackRepository.findByLanguageIgnoreCaseOrderByPopularityDesc("Hindi")
+                        : trackRepository.findAll())
+                    .stream()
                     .sorted(Comparator.comparingInt(Track::getPopularity).reversed())
                     .limit(candidatePoolSize)
                     .toList();
@@ -190,6 +218,18 @@ public class MusicRecommendationService {
 
         // ── STEP 5: SELECT (Groq LLM, constrained to the assigned evidence) ─
         return select(shortlisted, evidenceByTrack, emotion);
+    }
+
+    /**
+     * Filters every retrieval source down to language=Hindi tracks only. Applied before
+     * fusion so the Hindi-only restriction is enforced at the earliest possible stage —
+     * fuse/evidence/rerank/select downstream never see a non-Hindi track to begin with.
+     */
+    private Map<String, List<Track>> filterToHindi(Map<String, List<Track>> sources) {
+        Map<String, List<Track>> filtered = new LinkedHashMap<>();
+        sources.forEach((name, tracks) -> filtered.put(name,
+                tracks.stream().filter(t -> "Hindi".equalsIgnoreCase(t.getLanguage())).toList()));
+        return filtered;
     }
 
     /** Counts, per track id, how many independent retrieval sources surfaced it. */
@@ -367,11 +407,12 @@ public class MusicRecommendationService {
                     .call()
                     .content();
 
-            return parseSelectResponse(rawJson, candidates, emotion);
+            log.debug("Groq selection raw response: {}", rawJson);
+            return parseSelectResponse(rawJson, candidates, evidenceByTrack, emotion);
 
         } catch (Exception ex) {
             log.warn("LLM selection failed — falling back to RRF order. Cause: {}", ex.getMessage());
-            return rrfFallback(candidates, emotion);
+            return rrfFallback(candidates, evidenceByTrack, emotion);
         }
     }
 
@@ -379,6 +420,7 @@ public class MusicRecommendationService {
 
     private RankingResult parseSelectResponse(String rawJson,
                                                List<Track> candidates,
+                                               Map<Long, List<EvidenceRecord>> evidenceByTrack,
                                                EmotionMetadata emotion) {
         try {
             String cleaned = extractJsonBlock(rawJson);
@@ -390,12 +432,7 @@ public class MusicRecommendationService {
             List<Long> selectedIds = new ArrayList<>();
             root.path("selected_track_ids").forEach(node -> selectedIds.add(node.asLong()));
 
-            Map<String, String> explanations = new HashMap<>();
-            JsonNode expNode = root.path("track_explanations");
-            if (!expNode.isMissingNode()) {
-                expNode.fields().forEachRemaining(e ->
-                        explanations.put(e.getKey(), e.getValue().asText()));
-            }
+            Map<String, String> explanations = parseExplanations(root.path("track_explanations"));
 
             List<TrackDTO> ordered = selectedIds.stream()
                     .filter(trackMap::containsKey)
@@ -416,23 +453,69 @@ public class MusicRecommendationService {
                         .forEach(t -> ordered.add(TrackDTO.from(t)));
             }
 
+            int llmExplained = (int) ordered.stream().filter(t -> t.getExplanation() != null && !t.getExplanation().isBlank()).count();
+            ensureExplained(ordered, evidenceByTrack);
             String message = root.path("recommendation_message").asText(defaultMessage(emotion));
-            log.info("SELECT: Groq selected {} tracks", ordered.size());
+            log.info("SELECT: Groq selected {} tracks ({} explained by the LLM, rest from their evidence)", ordered.size(), llmExplained);
             return new RankingResult(ordered, message);
 
         } catch (Exception ex) {
             log.warn("Failed to parse rerank response: {}", ex.getMessage());
-            return rrfFallback(candidates, emotion);
+            return rrfFallback(candidates, evidenceByTrack, emotion);
         }
     }
 
     /** Fallback when LLM reranking fails — return candidates in RRF order */
-    private RankingResult rrfFallback(List<Track> candidates, EmotionMetadata emotion) {
+    private RankingResult rrfFallback(List<Track> candidates, Map<Long, List<EvidenceRecord>> evidenceByTrack,
+                                      EmotionMetadata emotion) {
         List<TrackDTO> top = candidates.stream()
                 .limit(topNResults)
                 .map(TrackDTO::from)
                 .collect(Collectors.toList());
+        ensureExplained(top, evidenceByTrack);
         return new RankingResult(top, defaultMessage(emotion));
+    }
+
+    /**
+     * Reads track_explanations in the shapes the LLM has been seen to return: an object keyed by
+     * track id (keys like "12", "track_12" or "id 12"), or a list of {id|track_id, explanation|reason}.
+     * Returns explanations keyed by the bare numeric id.
+     */
+    private Map<String, String> parseExplanations(JsonNode node) {
+        Map<String, String> out = new HashMap<>();
+        if (node == null || node.isMissingNode() || node.isNull()) return out;
+        if (node.isObject()) {
+            node.fields().forEachRemaining(e -> {
+                String id = e.getKey().replaceAll("\\D", "");
+                if (!id.isEmpty() && e.getValue().isTextual()) out.put(id, e.getValue().asText());
+            });
+        } else if (node.isArray()) {
+            for (JsonNode item : node) {
+                String id = item.path("id").asText(item.path("track_id").asText("")).replaceAll("\\D", "");
+                String text = item.path("explanation").asText(item.path("reason").asText(""));
+                if (!id.isEmpty() && !text.isBlank()) out.put(id, text);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Req. 5 — every recommended song says why it was recommended. Songs without an LLM explanation
+     * (the LLM skipped them, they were padded in, or the LLM step failed) get one assembled from
+     * their own code-computed evidence, so nothing is invented.
+     */
+    private void ensureExplained(List<TrackDTO> tracks, Map<Long, List<EvidenceRecord>> evidenceByTrack) {
+        for (TrackDTO t : tracks) {
+            if (t.getExplanation() != null && !t.getExplanation().isBlank()) continue;
+            List<EvidenceRecord> ev = evidenceByTrack.getOrDefault(t.getId(), List.of()).stream()
+                    .sorted(java.util.Comparator.comparingDouble(EvidenceRecord::strength).reversed())
+                    .limit(2)
+                    .toList();
+            t.setExplanation(ev.isEmpty()
+                    ? "Included to complete the playlist as a well-rated Hindi " + (t.getGenre() == null ? "" : t.getGenre() + " ")
+                      + "track; no direct emotional match was found for it."
+                    : "Recommended because: " + ev.stream().map(EvidenceRecord::text).collect(Collectors.joining("; ")) + ".");
+        }
     }
 
     // ── Utilities ─────────────────────────────────────────────────

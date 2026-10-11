@@ -1,0 +1,56 @@
+﻿{
+    "conversations":  {
+                          "conv_male_consultant_female_patient":  {
+                                                                      "file":  "conv_male_consultant_female_patient.mp3",
+                                                                      "roles":  [
+                                                                                    "HEALTH_CONSULTANT",
+                                                                                    "PATIENT",
+                                                                                    "HEALTH_CONSULTANT",
+                                                                                    "PATIENT",
+                                                                                    "HEALTH_CONSULTANT",
+                                                                                    "PATIENT",
+                                                                                    "HEALTH_CONSULTANT"
+                                                                                ],
+                                                                      "distinctVoices":  2
+                                                                  },
+                          "conv_female_consultant_male_patient_patient_first":  {
+                                                                                    "file":  "conv_female_consultant_male_patient_patient_first.mp3",
+                                                                                    "roles":  [
+                                                                                                  "PATIENT",
+                                                                                                  "HEALTH_CONSULTANT",
+                                                                                                  "PATIENT",
+                                                                                                  "HEALTH_CONSULTANT",
+                                                                                                  "PATIENT",
+                                                                                                  "HEALTH_CONSULTANT"
+                                                                                              ],
+                                                                                    "distinctVoices":  2
+                                                                                },
+                          "conv_single_voice_both_roles":  {
+                                                               "file":  "conv_single_voice_both_roles.mp3",
+                                                               "roles":  [
+                                                                             "HEALTH_CONSULTANT",
+                                                                             "PATIENT",
+                                                                             "HEALTH_CONSULTANT",
+                                                                             "PATIENT",
+                                                                             "HEALTH_CONSULTANT",
+                                                                             "PATIENT"
+                                                                         ],
+                                                               "distinctVoices":  1
+                                                           },
+                          "conv_single_turn":  {
+                                                   "file":  "conv_single_turn.mp3",
+                                                   "roles":  [
+                                                                 "PATIENT"
+                                                             ],
+                                                   "distinctVoices":  1
+                                               }
+                      },
+    "voice":  {
+                  "nostalgic":  "voice_nostalgic.wav",
+                  "high_arousal":  "voice_high_arousal.wav",
+                  "low_arousal":  "voice_low_arousal.wav",
+                  "silence":  "silence.wav",
+                  "not_audio":  "not_audio.mp3",
+                  "empty":  "empty.mp3"
+              }
+}

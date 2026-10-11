@@ -214,6 +214,38 @@ public final class RagaRasaCatalog {
                 .toList();
     }
 
+    /** Sum of the weights of the given emotions that this raga is traditionally associated with. */
+    public static double coverage(String raga, Map<String, Double> emotionWeights) {
+        List<String> ragaEmotions = profileFor(raga).map(RagaProfile::emotions).orElse(List.of());
+        double total = 0;
+        for (Map.Entry<String, Double> e : emotionWeights.entrySet()) {
+            if (e.getKey() != null && ragaEmotions.contains(e.getKey().toUpperCase())) total += e.getValue();
+        }
+        return total;
+    }
+
+    /**
+     * Ragas associated with any of the weighted emotions, ranked by {@link #coverage}: the raga
+     * covering the largest share of the emotional mix comes first (catalogue order breaks ties).
+     */
+    public static List<String> ragasForWeightedEmotions(Map<String, Double> emotionWeights) {
+        if (emotionWeights == null || emotionWeights.isEmpty()) return List.of();
+        return PROFILES.stream()
+                .map(RagaProfile::raga)
+                .filter(r -> coverage(r, emotionWeights) > 0)
+                .sorted(java.util.Comparator.comparingDouble((String r) -> coverage(r, emotionWeights)).reversed())
+                .toList();
+    }
+
+    /** {@link #ragasForWeightedEmotions} without intensifying ragas — see {@link #ragasForEmotionsExcludingCaution}. */
+    public static List<String> ragasForWeightedEmotionsExcludingCaution(Map<String, Double> emotionWeights) {
+        List<String> ranked = ragasForWeightedEmotions(emotionWeights);
+        List<String> filtered = ranked.stream()
+                .filter(r -> !profileFor(r).map(RagaProfile::cautionAtHighIntensity).orElse(false))
+                .toList();
+        return filtered.isEmpty() ? ranked : filtered;
+    }
+
     /**
      * Same ranking as {@link #ragasForEmotions}, but with intensifying ragas
      * (see {@link RagaProfile#cautionAtHighIntensity()}) filtered out — used

@@ -1,0 +1,521 @@
+{
+  "conversations": {
+    "real_hindi_male_consultant_female_patient": {
+      "file": "real_hindi_male_consultant_female_patient.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          7200
+        ],
+        [
+          7700,
+          17732
+        ],
+        [
+          18632,
+          26816
+        ],
+        [
+          27416,
+          36152
+        ],
+        [
+          37252,
+          41332
+        ],
+        [
+          41732,
+          51476
+        ],
+        [
+          52276,
+          59620
+        ],
+        [
+          60320,
+          65408
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "STRESS",
+        null,
+        "SADNESS",
+        null,
+        "NOSTALGIA",
+        null,
+        "CALM"
+      ],
+      "voices": [
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural"
+      ],
+      "intendedPatientEmotions": [
+        "STRESS",
+        "SADNESS",
+        "NOSTALGIA",
+        "CALM"
+      ],
+      "sameGenderSpeakers": false
+    },
+    "real_indian_english_male_consultant_female_patient": {
+      "file": "real_indian_english_male_consultant_female_patient.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          6000
+        ],
+        [
+          6500,
+          15836
+        ],
+        [
+          16736,
+          22208
+        ],
+        [
+          22808,
+          31592
+        ],
+        [
+          32692,
+          37468
+        ],
+        [
+          37868,
+          46484
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "ANGER",
+        null,
+        "FRUSTRATION",
+        null,
+        "RELAXATION"
+      ],
+      "voices": [
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural"
+      ],
+      "intendedPatientEmotions": [
+        "ANGER",
+        "FRUSTRATION",
+        "RELAXATION"
+      ],
+      "sameGenderSpeakers": false
+    },
+    "real_two_male_voices": {
+      "file": "real_two_male_voices.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          5232
+        ],
+        [
+          5732,
+          13604
+        ],
+        [
+          14504,
+          19208
+        ],
+        [
+          19808,
+          28328
+        ],
+        [
+          29428,
+          34540
+        ],
+        [
+          34940,
+          40652
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "ANXIETY",
+        null,
+        "SADNESS",
+        null,
+        "CALM"
+      ],
+      "voices": [
+        "en-IN-PrabhatNeural",
+        "hi-IN-MadhurNeural",
+        "en-IN-PrabhatNeural",
+        "hi-IN-MadhurNeural",
+        "en-IN-PrabhatNeural",
+        "hi-IN-MadhurNeural"
+      ],
+      "intendedPatientEmotions": [
+        "ANXIETY",
+        "SADNESS",
+        "CALM"
+      ],
+      "sameGenderSpeakers": true
+    },
+    "real_two_female_voices": {
+      "file": "real_two_female_voices.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          4584
+        ],
+        [
+          5084,
+          13052
+        ],
+        [
+          13952,
+          19232
+        ],
+        [
+          19832,
+          28328
+        ],
+        [
+          29428,
+          34348
+        ],
+        [
+          34748,
+          40940
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "ANXIETY",
+        null,
+        "NOSTALGIA",
+        null,
+        "JOY"
+      ],
+      "voices": [
+        "hi-IN-SwaraNeural",
+        "en-IN-NeerjaNeural",
+        "hi-IN-SwaraNeural",
+        "en-IN-NeerjaNeural",
+        "hi-IN-SwaraNeural",
+        "en-IN-NeerjaNeural"
+      ],
+      "intendedPatientEmotions": [
+        "ANXIETY",
+        "NOSTALGIA",
+        "JOY"
+      ],
+      "sameGenderSpeakers": true
+    },
+    "real_long_emotional_arc": {
+      "file": "real_long_emotional_arc.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          4584
+        ],
+        [
+          5084,
+          12476
+        ],
+        [
+          13376,
+          16616
+        ],
+        [
+          17216,
+          24752
+        ],
+        [
+          25852,
+          28588
+        ],
+        [
+          28988,
+          37220
+        ],
+        [
+          38020,
+          42148
+        ],
+        [
+          42848,
+          52040
+        ],
+        [
+          52540,
+          55948
+        ],
+        [
+          56848,
+          64936
+        ],
+        [
+          65536,
+          69592
+        ],
+        [
+          70692,
+          76188
+        ],
+        [
+          76588,
+          79684
+        ],
+        [
+          80484,
+          85380
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "ANXIETY",
+        null,
+        "ANXIETY",
+        null,
+        "ANGER",
+        null,
+        "SADNESS",
+        null,
+        "NOSTALGIA",
+        null,
+        "SADNESS",
+        null,
+        "CALM"
+      ],
+      "voices": [
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural"
+      ],
+      "intendedPatientEmotions": [
+        "ANXIETY",
+        "ANXIETY",
+        "ANGER",
+        "SADNESS",
+        "NOSTALGIA",
+        "SADNESS",
+        "CALM"
+      ],
+      "sameGenderSpeakers": false
+    },
+    "real_backchannel_turns": {
+      "file": "real_backchannel_turns.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT"
+      ],
+      "spansMs": [
+        [
+          0,
+          3144
+        ],
+        [
+          3644,
+          10652
+        ],
+        [
+          11552,
+          13424
+        ],
+        [
+          14024,
+          20888
+        ],
+        [
+          21988,
+          23860
+        ],
+        [
+          24260,
+          27500
+        ],
+        [
+          28300,
+          33772
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "ANXIETY",
+        null,
+        "SADNESS",
+        null,
+        "ANXIETY",
+        null
+      ],
+      "voices": [
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural",
+        "en-IN-NeerjaNeural",
+        "en-IN-PrabhatNeural"
+      ],
+      "intendedPatientEmotions": [
+        "ANXIETY",
+        "SADNESS",
+        "ANXIETY"
+      ],
+      "sameGenderSpeakers": false
+    },
+    "real_hindi_noisy_phone": {
+      "file": "real_hindi_noisy_phone.mp3",
+      "roles": [
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT",
+        "HEALTH_CONSULTANT",
+        "PATIENT"
+      ],
+      "spansMs": [
+        [
+          0,
+          7200
+        ],
+        [
+          7700,
+          17732
+        ],
+        [
+          18632,
+          26816
+        ],
+        [
+          27416,
+          36152
+        ],
+        [
+          37252,
+          41332
+        ],
+        [
+          41732,
+          51476
+        ],
+        [
+          52276,
+          59620
+        ],
+        [
+          60320,
+          65408
+        ]
+      ],
+      "intendedEmotions": [
+        null,
+        "STRESS",
+        null,
+        "SADNESS",
+        null,
+        "NOSTALGIA",
+        null,
+        "CALM"
+      ],
+      "voices": [
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural",
+        "hi-IN-MadhurNeural",
+        "hi-IN-SwaraNeural"
+      ],
+      "intendedPatientEmotions": [
+        "STRESS",
+        "SADNESS",
+        "NOSTALGIA",
+        "CALM"
+      ],
+      "sameGenderSpeakers": false,
+      "degraded": "pink noise, 300-3400 Hz phone band, patient -6 dB"
+    }
+  },
+  "voice": {
+    "real_voice_hindi_sad": "real_voice_hindi_sad.mp3",
+    "real_voice_excited": "real_voice_excited.mp3",
+    "real_voice_calm": "real_voice_calm.mp3",
+    "real_voice_hindi_sad_noisy": "real_voice_hindi_sad_noisy.mp3"
+  }
+}

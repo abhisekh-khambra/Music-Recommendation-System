@@ -58,6 +58,18 @@ public class EmotionMetadata {
     @JsonProperty("expanded_mood_tags")
     private List<String> expandedMoodTags;
 
+    /**
+     * Audio-based acoustic arousal signal, set programmatically (never by the LLM) for
+     * voice/conversation input only — see com.musicrec.audio.AcousticEmotionAnalysisService.
+     * Null for pure text input, where there is no audio to analyze.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("audio_emotion_profile")
+    private AudioEmotionProfileDTO audioEmotionProfile;
+
+    /** Set only when audioEmotionProfile was fused into intensity above — explains how/why. */
+    @com.fasterxml.jackson.annotation.JsonProperty("fusion_note")
+    private String fusionNote;
+
     // ── Fallback defaults ────────────────────────────────────────
     public String getPrimaryEmotionSafe() {
         return (primaryEmotion != null && !primaryEmotion.isBlank())

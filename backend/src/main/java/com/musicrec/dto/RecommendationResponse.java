@@ -25,6 +25,9 @@ public class RecommendationResponse {
     /** Conversational message from the LLM explaining the playlist */
     private String conversationalMessage;
 
+    /** Non-fatal degradations the caller should know about (e.g. fewer than 10 eligible Hindi tracks). */
+    private java.util.List<String> warnings;
+
     /** Session id for chat continuity */
     private String sessionId;
 

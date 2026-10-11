@@ -10,6 +10,7 @@ import {
   getTextRecommendation,
   getVoiceRecommendation,
   getConversationAnalysis,
+  reassignConversationRoles,
   getChatHistory,
 } from "./services/api";
 
@@ -84,6 +85,21 @@ export default function App() {
       await refreshHistory();
     } catch (err) {
       setError(err.message || "Conversation processing failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, refreshHistory]);
+
+  // ── Req. #2: user-driven speaker-role correction (no audio re-upload) ──
+  const handleRoleCorrection = useCallback(async (correctedTurns) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await reassignConversationRoles(correctedTurns, sessionId);
+      setConversationResult(data);
+      await refreshHistory();
+    } catch (err) {
+      setError(err.message || "Could not apply the speaker-role correction. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -172,18 +188,21 @@ export default function App() {
             </h3>
             <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
               <li>You describe your mood in Hindi or English (text or voice)</li>
-              <li>Groq LLM detects fine-grained emotion (joy, sadness, stress…)</li>
-              <li>We retrieve 30 candidate songs matching your emotion from the database</li>
+              <li>Groq LLM detects fine-grained emotion (joy, sadness, stress…) — voice input also gets a real acoustic (pitch/energy) arousal read, fused with the text</li>
+              <li>We retrieve candidate songs matching your emotion — <strong className="text-gray-300">Hindi-language only</strong>, enforced before ranking, not just in the UI</li>
               <li>Groq reranks them and selects the TOP 10 best matches</li>
-              <li>You get a personalised playlist with explanations</li>
+              <li>You get a personalised, all-Hindi playlist with explanations</li>
             </ol>
             {tab === "conversation" && (
               <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-700">
                 <span className="text-gray-400 font-medium">Conversation mode: </span>
-                Whisper transcribes the audio, an LLM segments it into Health-Consultant / Patient
-                turns (by conversational role, not voice — true audio diarization isn't wired in),
-                the Patient's turns drive a non-diagnostic mood/sentiment read, a Raga is selected
-                from that state (rasa-theory reference table), and songs are ranked by Raga + emotion + metadata.
+                Whisper transcribes the audio with real per-segment timestamps; speakers are
+                separated by actual audio-based diarization (acoustic clustering on pitch/energy),
+                not just LLM text-splitting — an LLM only decides which cluster is the Health
+                Consultant vs. the Patient, and you can correct that assignment yourself if it looks
+                wrong. The Patient's turns drive a non-diagnostic mood read (with a per-segment
+                emotional-variability timeline), a Raga is selected from that state, and the Hindi-only
+                Top 10 is ranked by Raga + emotion + metadata.
               </p>
             )}
           </div>
@@ -217,7 +236,10 @@ export default function App() {
           )}
 
           {!loading && tab === "conversation" && conversationResult && (
-            <ConversationResult data={conversationResult} />
+            <ConversationResult
+              data={conversationResult}
+              onCorrectRoles={handleRoleCorrection}
+            />
           )}
 
           {!loading && tab !== "conversation" && !result && (

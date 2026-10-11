@@ -9,8 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,6 +46,30 @@ public class RagaSelectionService {
     }
 
     public RagaSelectionDTO selectRaga(EmotionMetadata emotion) {
+        return selectRaga(emotion, false);
+    }
+
+    /**
+     * @param restrictToHindi when true (the conversation pipeline's mandatory mode — see
+     *                        MusicRecommendationService), "tracksAvailable" and the raga-fallback
+     *                        logic only count tracks that are also language=Hindi, so the chosen
+     *                        raga is one that can actually produce Hindi recommendations.
+     */
+    public RagaSelectionDTO selectRaga(EmotionMetadata emotion, boolean restrictToHindi) {
+        return selectRaga(emotion, Map.of(), restrictToHindi);
+    }
+
+    /**
+     * Distribution-aware selection for the conversation pipeline: each raga is scored by how much
+     * of the Patient's emotional mix it traditionally covers — the share of analysed responses
+     * per emotion (percent), plus {@link #OVERALL_PRIMARY_WEIGHT} for the overall Patient emotion
+     * and {@link #RELATED_EMOTION_WEIGHT} for its secondary/related emotions — instead of
+     * counting every matching emotion equally. An empty distribution gives the original behaviour.
+     *
+     * @param emotionDistribution percent of Patient responses per emotion (from EmotionalVariabilityDTO)
+     */
+    public RagaSelectionDTO selectRaga(EmotionMetadata emotion, Map<String, Double> emotionDistribution,
+                                       boolean restrictToHindi) {
         List<String> warnings = new ArrayList<>();
         String primary = emotion.getPrimaryEmotionSafe();
         double intensity = emotion.getIntensity();
@@ -56,9 +82,18 @@ public class RagaSelectionService {
         boolean acuteHighIntensity = intensity >= HIGH_INTENSITY_THRESHOLD
                 && states.stream().anyMatch(ACUTE_DISTRESS_STATES::contains);
 
-        List<String> ranked = acuteHighIntensity
-                ? RagaRasaCatalog.ragasForEmotionsExcludingCaution(states)
-                : RagaRasaCatalog.ragasForEmotions(states);
+        boolean useDistribution = emotionDistribution != null && !emotionDistribution.isEmpty();
+        Map<String, Double> weights = useDistribution ? weightsFor(primary, states, emotionDistribution) : Map.of();
+        List<String> ranked;
+        if (useDistribution) {
+            ranked = acuteHighIntensity
+                    ? RagaRasaCatalog.ragasForWeightedEmotionsExcludingCaution(weights)
+                    : RagaRasaCatalog.ragasForWeightedEmotions(weights);
+        } else {
+            ranked = acuteHighIntensity
+                    ? RagaRasaCatalog.ragasForEmotionsExcludingCaution(states)
+                    : RagaRasaCatalog.ragasForEmotions(states);
+        }
 
         if (ranked.isEmpty()) {
             ranked = List.of(DEFAULT_FALLBACK_RAGA);
@@ -66,20 +101,29 @@ public class RagaSelectionService {
                     + "defaulted to a broadly calming raga (" + DEFAULT_FALLBACK_RAGA + ").");
         }
 
-        // Prefer the highest-ranked raga that actually has catalogued tracks.
+        // Prefer the highest-ranked raga that actually has catalogued tracks (Hindi-language
+        // tracks only, when restrictToHindi — e.g. the conversation pipeline's mandatory mode).
         String chosen = null;
         int tracksAvailable = 0;
         for (String candidate : ranked) {
-            int count = trackRepository.findByRagaInOrderByPopularityDesc(List.of(candidate)).size();
+            int count = restrictToHindi
+                    ? trackRepository.findByRagaInAndLanguageIgnoreCaseOrderByPopularityDesc(List.of(candidate), "Hindi").size()
+                    : trackRepository.findByRagaInOrderByPopularityDesc(List.of(candidate)).size();
             if (count > 0) {
                 chosen = candidate;
                 tracksAvailable = count;
                 break;
             }
         }
+        if (chosen != null && !chosen.equals(ranked.get(0))) {
+            String scope = restrictToHindi ? "Hindi-language tracks" : "tracks";
+            warnings.add("The closest emotional match, Raga " + ranked.get(0) + ", has no " + scope
+                    + " in the catalogue yet — Raga " + chosen + ", the closest match that does, was used instead.");
+        }
         if (chosen == null) {
             chosen = ranked.get(0);
-            warnings.add("No catalogued tracks were found for '" + chosen + "' or its close alternatives — "
+            String scope = restrictToHindi ? "Hindi-language catalogued tracks" : "catalogued tracks";
+            warnings.add("No " + scope + " were found for '" + chosen + "' or its close alternatives — "
                     + "recommendations will fall back to emotion-based matches outside this raga.");
         }
 
@@ -90,6 +134,7 @@ public class RagaSelectionService {
         String description = profile.map(RagaProfile::description).orElse("");
 
         String reason = buildReason(primary, intensity, finalChosen, rasa, description, acuteHighIntensity);
+        if (useDistribution) reason += " " + coverageSentence(finalChosen, emotionDistribution);
 
         List<String> alternates = ranked.stream().filter(r -> !r.equals(finalChosen)).limit(5).toList();
 
@@ -119,6 +164,38 @@ public class RagaSelectionService {
             sb.append(" A calming raga was prioritized because the detected intensity was high.");
         }
         return sb.toString();
+    }
+
+    /**
+     * The response-level distribution (shares summing to 1.0) is the main evidence; the overall label
+     * read from the whole patient text only adds a bonus, so it cannot outvote what most of the
+     * patient's responses actually expressed (seen live: overall STRESS vs 43% NOSTALGIA responses).
+     */
+    static final double OVERALL_PRIMARY_WEIGHT = 0.25;
+    static final double RELATED_EMOTION_WEIGHT = 0.05;
+
+    private Map<String, Double> weightsFor(String primary, Set<String> related, Map<String, Double> distribution) {
+        Map<String, Double> weights = new LinkedHashMap<>();
+        distribution.forEach((e, pct) -> weights.merge(e.toUpperCase(), pct / 100.0, Double::sum));
+        weights.merge(primary.toUpperCase(), OVERALL_PRIMARY_WEIGHT, Double::sum);
+        for (String e : related) {
+            if (!e.equalsIgnoreCase(primary)) weights.merge(e, RELATED_EMOTION_WEIGHT, Double::sum);
+        }
+        return weights;
+    }
+
+    /** e.g. "This raga's traditional emotions cover 75% of the patient's responses (SADNESS 50%, NOSTALGIA 25%)." */
+    private String coverageSentence(String raga, Map<String, Double> distribution) {
+        List<String> covered = new ArrayList<>();
+        double share = 0;
+        for (Map.Entry<String, Double> e : distribution.entrySet()) {
+            if (RagaRasaCatalog.ragaMatchesEmotion(raga, e.getKey())) {
+                share += e.getValue();
+                covered.add(e.getKey() + " " + Math.round(e.getValue()) + "%");
+            }
+        }
+        return "This raga's traditional emotions cover " + Math.round(share) + "% of the patient's responses"
+                + (covered.isEmpty() ? "." : " (" + String.join(", ", covered) + ").");
     }
 
     private Set<String> upper(List<String> list) {

@@ -3,3 +3,6 @@ frontend/build/
 backend/target/
 .idea/
 .env
+**/.env
+e2e/fixtures/
+e2e/results/

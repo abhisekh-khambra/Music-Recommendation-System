@@ -30,7 +30,7 @@ client.interceptors.response.use(
 );
 
 /**
- * Send a text message and receive emotion + top-10 recommendations.
+ * Send a text message and receive emotion + top-10 Hindi-only recommendations.
  * @param {string} message
  * @param {string} sessionId
  * @returns {Promise<RecommendationResponse>}
@@ -41,7 +41,7 @@ export const getTextRecommendation = (message, sessionId) =>
     .then((r) => r.data);
 
 /**
- * Send a recorded audio Blob and receive transcription + recommendations.
+ * Send a recorded audio Blob and receive transcription + Hindi-only recommendations.
  * @param {Blob} audioBlob
  * @param {string} sessionId
  * @returns {Promise<RecommendationResponse>}
@@ -59,8 +59,9 @@ export const getVoiceRecommendation = (audioBlob, sessionId) => {
 
 /**
  * Send a recorded two-speaker conversation audio file (Health Consultant + Patient)
- * and receive the full Raga-centric pipeline result: transcript, speaker turns,
- * non-diagnostic patient analysis, selected Raga + reason, and top-10 recommendations.
+ * and receive the full Raga-centric pipeline result: timestamped speaker turns
+ * (audio-diarized), audio-based arousal profile, per-segment emotional variability,
+ * non-diagnostic patient analysis, selected Raga + reason, and Hindi-only top-10.
  * @param {Blob|File} audioFile
  * @param {string} sessionId
  * @returns {Promise<ConversationRecommendationResponse>}
@@ -76,6 +77,19 @@ export const getConversationAnalysis = (audioFile, sessionId) => {
     })
     .then((r) => r.data);
 };
+
+/**
+ * Req. #3 — resubmit the SAME turns with user-corrected speaker roles (no audio
+ * re-upload). Recomputes patient text, emotion, Raga selection, and the Hindi-only
+ * Top 10 from the correction.
+ * @param {Array<{order:number, speakerRole:string, text:string, startMs:number, endMs:number}>} turns
+ * @param {string} sessionId
+ * @returns {Promise<ConversationRecommendationResponse>}
+ */
+export const reassignConversationRoles = (turns, sessionId) =>
+  client
+    .post("/conversation/reassign-roles", { turns, sessionId })
+    .then((r) => r.data);
 
 /**
  * Fetch chat history for a given session.

@@ -1,6 +1,8 @@
 package com.musicrec.config;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.api.OpenAiAudioApi;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -60,6 +62,23 @@ public class SpringAIConfig {
     public ChatClient conversationChatClient(ChatClient.Builder builder) {
         return builder
                 .defaultSystem(CONVERSATION_SYSTEM_PROMPT)
+                .build();
+    }
+
+    /**
+     * Low-level audio API client, used only by SpeechToTextService to request
+     * verbose_json transcription (real per-segment timestamps from Whisper) —
+     * a capability the higher-level OpenAiAudioTranscriptionModel bean doesn't
+     * expose. Reuses the same Groq base-url/api-key as the auto-configured
+     * transcription model; no new credentials or dependency.
+     */
+    @Bean
+    public OpenAiAudioApi openAiAudioApi(
+            @Value("${spring.ai.openai.audio.transcription.base-url}") String baseUrl,
+            @Value("${spring.ai.openai.audio.transcription.api-key}") String apiKey) {
+        return OpenAiAudioApi.builder()
+                .baseUrl(baseUrl)
+                .apiKey(apiKey)
                 .build();
     }
 }

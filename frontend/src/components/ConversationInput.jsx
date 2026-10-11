@@ -53,8 +53,10 @@ export default function ConversationInput({ onAudioReady, isLoading }) {
       )}
 
       <p className="text-xs text-gray-500">
-        The system distinguishes speakers by conversational role (who asks vs. who describes their
-        own feelings) rather than by voice — see "How It Works" below.
+        Speakers are separated by real audio-based diarization (acoustic clustering on pitch/energy),
+        not by guessing from conversational role — an LLM only decides which voice is the Health
+        Consultant vs. the Patient, and you can correct that yourself if it looks wrong. See "How It
+        Works" below.
       </p>
     </div>
   );

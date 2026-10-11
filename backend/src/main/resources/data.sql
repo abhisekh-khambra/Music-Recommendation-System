@@ -164,4 +164,101 @@ INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_lev
 ('Chandrakauns', 'Vidyadhar Vyas', 'Indian Classical Collection', 'Indian Classical', 'Instrumental', 47, 0.24, 0.20, 'MELANCHOLY', '["ANXIETY"]', '["raga","chandrakauns","introspective","midnight","soft"]', 'Chandrakauns', 505000, 44),
 ('Raga Hansadhwani', 'Pravin Godkhindi', 'Indian Classical Collection', 'Indian Classical', 'Instrumental', 100, 0.60, 0.88, 'JOY', '["EXCITEMENT"]', '["raga","hansadhwani","bright","festive","celebration"]', 'Hansadhwani', 385000, 57),
 ('Kirwani Raga', 'Rashid Khan', 'Indian Classical Collection', 'Indian Classical', 'Instrumental', 54, 0.20, 0.28, 'SADNESS', '["MELANCHOLY","CALM"]', '["raga","kirwani","hopeful","evening","bittersweet"]', 'Kirwani', 440000, 52),
-('Adana', 'Buddhadev DasGupta', 'Indian Classical Collection', 'Indian Classical', 'Instrumental', 88, 0.75, 0.30, 'ANGER', '["FRUSTRATION","EXCITEMENT"]', '["raga","adana","valorous","intense","driving"]', 'Adana', 410000, 46);
+('Adana', 'Buddhadev DasGupta', 'Indian Classical Collection', 'Indian Classical', 'Instrumental', 88, 0.75, 0.30, 'ANGER', '["FRUSTRATION","EXCITEMENT"]', '["raga","adana","valorous","intense","driving"]', 'Adana', 410000, 46),
+-- Hindi VOCAL film songs with a commonly-cited (composer-interview / music-journalism) raga
+-- basis — these, unlike the purely-instrumental rows above, are eligible for the Hindi-only
+-- conversation/Raga pipeline's final recommendations. Raga attribution for film songs varies
+-- between sources and is not a verified musicological fact — same caveat as RagaRasaCatalog.
+('Albela Sajan', 'Kavita Krishnamurthy, Sonu Nigam', 'Hum Dil De Chuke Sanam', 'Bollywood Classical', 'Hindi', 92, 0.55, 0.62, 'JOY', '["EXCITEMENT","LOVE"]', '["raga","bhairav","wedding","festive","classical-bollywood"]', 'Bhairav', 330000, 74),
+('Tadap Tadap', 'K.S. Chithra, Kumar Sanu', 'Hum Dil De Chuke Sanam', 'Bollywood Classical', 'Hindi', 58, 0.26, 0.16, 'SADNESS', '["MELANCHOLY","LOVE"]', '["raga","malkauns","heartbreak","intense","classical-bollywood"]', 'Malkauns', 372000, 80),
+('Silsila Ye Chaahat Ka', 'Shreya Ghoshal, Udit Narayan', 'Devdas', 'Bollywood Classical', 'Hindi', 68, 0.34, 0.60, 'LOVE', '["CALM","NOSTALGIA"]', '["raga","yaman","romantic","classical-bollywood","evening"]', 'Yaman', 345000, 78),
+('Man Mohana', 'Bela Shende', 'Jodhaa Akbar', 'Bollywood Classical', 'Hindi', 50, 0.20, 0.32, 'MELANCHOLY', '["SADNESS","NOSTALGIA"]', '["raga","darbari-kanada","devotional","classical-bollywood","gravitas"]', 'Darbari Kanada', 398000, 71);
+
+-- ── Additional Hindi Tracks — catalogue expansion for Hindi-only coverage ──
+-- Real, verifiably Hindi-language film/independent songs (no audio files, metadata
+-- only, same pattern as the existing Hindi block above) — added so more emotion/raga
+-- combinations in the Hindi-only conversation pipeline can reach a full top-10.
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('London Thumakda', 'Sonu Kakkar, Neha Kakkar, Vishal Dadlani', 'Queen', 'Bollywood', 'Hindi', 130, 0.85, 0.90, 'JOY', '["EXCITEMENT","LOVE"]', '["wedding","dance","upbeat","celebration","fun"]', 222000, 85);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Gallan Goodiyaan', 'Various Artists', 'Dil Dhadakne Do', 'Bollywood', 'Hindi', 128, 0.80, 0.86, 'JOY', '["EXCITEMENT"]', '["party","family","dance","energetic","celebration"]', 254000, 82);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Senorita', 'Farhan Akhtar, Arjun Rampal, Hrithik Roshan', 'Zindagi Na Milegi Dobara', 'Bollywood', 'Hindi', 120, 0.78, 0.84, 'EXCITEMENT', '["JOY"]', '["friendship","road-trip","upbeat","fun","energetic"]', 248000, 83);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Nagada Sang Dhol', 'Shreya Ghoshal, Osman Mir', 'Goliyon Ki Raasleela Ram-Leela', 'Bollywood', 'Hindi', 140, 0.90, 0.80, 'EXCITEMENT', '["JOY"]', '["festive","dance","garba","energetic","celebration"]', 275000, 80);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Malhari', 'Vishal Dadlani', 'Bajirao Mastani', 'Bollywood', 'Hindi', 150, 0.92, 0.75, 'EXCITEMENT', '["JOY"]', '["victory","dance","energetic","celebration","powerful"]', 221000, 85);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Sultan (Title Track)', 'Sukhwinder Singh', 'Sultan', 'Bollywood', 'Hindi', 132, 0.88, 0.70, 'EXCITEMENT', '["JOY"]', '["motivational","powerful","energetic","victory","sports"]', 213000, 79);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Hamari Adhuri Kahani', 'Arijit Singh', 'Hamari Adhuri Kahani', 'Bollywood', 'Hindi', 60, 0.28, 0.18, 'SADNESS', '["LOVE","MELANCHOLY"]', '["heartbreak","emotional","soulful","ballad","longing"]', 283000, 84);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tujhe Kitna Chaahne Lage', 'Arijit Singh', 'Kabir Singh', 'Bollywood', 'Hindi', 64, 0.30, 0.22, 'SADNESS', '["LOVE","MELANCHOLY"]', '["romantic","heartbreak","soulful","ballad","intense"]', 263000, 88);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Mere Dholna', 'Shreya Ghoshal, Kailash Kher', 'Bhool Bhulaiyaa', 'Bollywood', 'Hindi', 70, 0.32, 0.38, 'MELANCHOLY', '["SADNESS","NOSTALGIA"]', '["devotional","folk","soulful","classic","haunting"]', 295000, 76);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Hamdard', 'Arijit Singh', 'Ek Villain', 'Bollywood', 'Hindi', 62, 0.27, 0.25, 'MELANCHOLY', '["SADNESS","LOVE"]', '["romantic","emotional","soulful","ballad","tender"]', 280000, 85);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Lag Jaa Gale', 'Lata Mangeshkar', 'Woh Kaun Thi', 'Classic Bollywood', 'Hindi', 58, 0.20, 0.40, 'MELANCHOLY', '["LOVE","NOSTALGIA"]', '["classic","romantic","timeless","60s","tender"]', 230000, 82);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Bhaag D.K. Bose', 'Ram Sampath', 'Delhi Belly', 'Bollywood Rock', 'Hindi', 150, 0.90, 0.35, 'FRUSTRATION', '["STRESS","ANGER"]', '["energetic","rock","cathartic","intense","satirical"]', 240000, 68);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Emotional Atyachar', 'Hard Kaur, Rajan Batra', 'Dev D', 'Bollywood Rock', 'Hindi', 145, 0.85, 0.30, 'FRUSTRATION', '["ANGER","STRESS"]', '["breakup","rock","energetic","cathartic","intense"]', 256000, 66);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Zinda', 'Siddharth Mahadevan', 'Bhaag Milkha Bhaag', 'Bollywood Rock', 'Hindi', 135, 0.88, 0.55, 'ANGER', '["EXCITEMENT","FRUSTRATION"]', '["motivational","intense","powerful","driving","sports"]', 265000, 77);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tum Se Hi', 'Mohit Chauhan', 'Jab We Met', 'Bollywood', 'Hindi', 76, 0.30, 0.68, 'RELAXATION', '["LOVE","CALM"]', '["romantic","soft","soothing","gentle","melodic"]', 258000, 87);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Luka Chuppi', 'A.R. Rahman, Lata Mangeshkar', 'Rang De Basanti', 'Bollywood', 'Hindi', 66, 0.22, 0.30, 'RELAXATION', '["MELANCHOLY","CALM"]', '["devotional","soft","emotional","soothing","tender"]', 330000, 81);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tu Jo Mila', 'K.K.', 'Bajrangi Bhaijaan', 'Bollywood', 'Hindi', 84, 0.42, 0.70, 'RELAXATION', '["JOY","LOVE"]', '["uplifting","soft-rock","feel-good","melodic","warm"]', 270000, 78);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tera Yaar Hoon Main', 'Arijit Singh', 'Sonu Ke Titu Ki Sweety', 'Bollywood', 'Hindi', 80, 0.36, 0.64, 'LOVE', '["NOSTALGIA","JOY"]', '["friendship","soulful","warm","acoustic","melodic"]', 262000, 86);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Kesariya', 'Arijit Singh', 'Brahmastra', 'Bollywood', 'Hindi', 96, 0.50, 0.78, 'LOVE', '["JOY","EXCITEMENT"]', '["romantic","uplifting","melodic","modern","warm"]', 268000, 93);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Yeh Dosti', 'Kishore Kumar, Manna Dey', 'Sholay', 'Classic Bollywood', 'Hindi', 112, 0.60, 0.82, 'NOSTALGIA', '["JOY","LOVE"]', '["friendship","classic","70s","cheerful","iconic"]', 290000, 89);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tujhe Dekha To', 'Lata Mangeshkar, Kumar Sanu', 'Dilwale Dulhania Le Jayenge', 'Classic Bollywood', 'Hindi', 90, 0.44, 0.74, 'NOSTALGIA', '["LOVE","JOY"]', '["romantic","classic","90s","iconic","melodic"]', 275000, 90);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Kahin Deep Jale', 'Lata Mangeshkar', 'Bees Saal Baad', 'Classic Bollywood', 'Hindi', 54, 0.16, 0.45, 'NOSTALGIA', '["CALM","MELANCHOLY"]', '["classic","60s","devotional","soft","timeless"]', 260000, 73);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Ghar More Pardesiya', 'Shreya Ghoshal, Jyoti Nooran, Sukriti Kakar', 'Kalank', 'Bollywood Classical', 'Hindi', 72, 0.34, 0.42, 'MELANCHOLY', '["NOSTALGIA","SADNESS"]', '["thumri","classical-bollywood","soulful","wedding","bittersweet"]', 315000, 84);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('O Re Piya', 'Rahat Fateh Ali Khan', 'Aaja Nachle', 'Bollywood', 'Hindi', 68, 0.30, 0.58, 'LOVE', '["CALM","NOSTALGIA"]', '["sufi","romantic","soulful","soft","classical-bollywood"]', 295000, 80);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tum Hi Dekho Na', 'Shaan', 'Saawariya', 'Bollywood', 'Hindi', 60, 0.24, 0.50, 'CALM', '["LOVE","MELANCHOLY"]', '["romantic","soft","piano","gentle","intimate"]', 300000, 72);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Tu Chal', 'Rekha Bhardwaj, Sukhwinder Singh', 'Highway', 'Bollywood Folk', 'Hindi', 82, 0.40, 0.60, 'RELAXATION', '["JOY","NOSTALGIA"]', '["road-trip","folk","free-spirited","warm","acoustic"]', 255000, 70);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Phir Na Milo Kabhi', 'Mohit Chauhan', 'Rab Ne Bana Di Jodi', 'Bollywood', 'Hindi', 64, 0.26, 0.28, 'SADNESS', '["MELANCHOLY","LOVE"]', '["heartbreak","soulful","ballad","emotional","soft"]', 270000, 75);
+
+INSERT INTO tracks (title, artist, album, genre, language, tempo_bpm, energy_level, valence, primary_emotion, secondary_emotions, mood_tags, duration_ms, popularity) VALUES
+('Kabira (Encore)', 'Tochi Raina, Rekha Bhardwaj', 'Yeh Jawaani Hai Deewani', 'Bollywood', 'Hindi', 70, 0.30, 0.55, 'NOSTALGIA', '["LOVE","CALM"]', '["sufi","soulful","wistful","acoustic","reflective"]', 245000, 78);

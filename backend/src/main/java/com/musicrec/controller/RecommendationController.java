@@ -1,5 +1,9 @@
 package com.musicrec.controller;
 
+import com.musicrec.audio.AcousticEmotionAnalysisService;
+import com.musicrec.audio.AcousticFeatureExtractor;
+import com.musicrec.audio.AudioTranscodingService;
+import com.musicrec.dto.AudioEmotionProfileDTO;
 import com.musicrec.dto.EmotionMetadata;
 import com.musicrec.dto.RecommendationRequest;
 import com.musicrec.dto.RecommendationResponse;
@@ -10,11 +14,14 @@ import com.musicrec.repository.ChatHistoryRepository;
 import com.musicrec.repository.TrackRepository;
 import com.musicrec.repository.UserRepository;
 import com.musicrec.service.EmotionAnalysisService;
+import com.musicrec.service.MultimodalEmotionFusionService;
 import com.musicrec.service.MusicRecommendationService;
 import com.musicrec.service.SpeechToTextService;
 import jakarta.validation.Valid;
+import com.musicrec.exception.InvalidAudioException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,11 +51,20 @@ public class RecommendationController {
     private final ChatHistoryRepository chatHistoryRepository;
     private final UserRepository userRepository;
     private final TrackRepository trackRepository;
+    private final AudioTranscodingService audioTranscodingService;
+    private final AcousticFeatureExtractor acousticFeatureExtractor;
+    private final AcousticEmotionAnalysisService acousticEmotionAnalysisService;
+    private final MultimodalEmotionFusionService multimodalEmotionFusionService;
+
+    @Value("${app.recommendation.top-n-results:10}")
+    private int topNResults;
 
     // ── Text Recommendation ───────────────────────────────────────
 
     /**
-     * Accepts free-form text (Hindi or English) and returns top-10 songs.
+     * Accepts free-form text (Hindi or English) and returns top-10 Hindi-language songs.
+     * The Hindi-only restriction applies here too — see MusicRecommendationService, which
+     * now defaults every recommend() overload to restrictToHindi=true system-wide.
      *
      * Request body:
      * {
@@ -68,7 +84,7 @@ public class RecommendationController {
         // 1. Emotion analysis
         EmotionMetadata emotion = emotionAnalysisService.analyze(request.getMessage());
 
-        // 2. Retrieve → Fuse → Rerank
+        // 2. Retrieve → Fuse → Rerank (Hindi-only)
         MusicRecommendationService.RankingResult result = recommendationService.recommend(emotion);
 
         // 3. Persist to chat history
@@ -82,6 +98,7 @@ public class RecommendationController {
                 .emotion(emotion)
                 .recommendations(result.tracks())
                 .conversationalMessage(result.conversationalMessage())
+                .warnings(insufficientResultsWarning(result))
                 .sessionId(sessionId)
                 .timestamp(System.currentTimeMillis())
                 .build();
@@ -93,12 +110,12 @@ public class RecommendationController {
 
     /**
      * Accepts an audio file, transcribes it via Groq Whisper, then runs the
-     * same emotion + recommendation pipeline as the text endpoint.
+     * same emotion + recommendation pipeline as the text endpoint (Hindi-only).
      *
      * Form params:
-     *   audio     — the audio blob (WebM / WAV / MP3 / M4A)
-     *   sessionId — optional
-     *   userId    — optional
+     *   audio            — the audio blob (WebM / WAV / MP3 / M4A)
+     *   sessionId        — optional
+     *   userId           — optional
      */
     @PostMapping(value = "/recommend/voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RecommendationResponse> recommendByVoice(
@@ -115,13 +132,21 @@ public class RecommendationController {
 
         sessionId = resolveSessionId(sessionId);
 
+        // 0. Decode first: rejects non-audio and silent uploads before speech-to-text,
+        //    which would otherwise fail with a 500 or hallucinate a transcript from silence.
+        List<AcousticFeatureExtractor.Frame> frames = decodeAndValidate(audioFile);
+
         // 1. Speech-to-text
         String transcript = speechToTextService.transcribe(audioFile);
 
-        // 2. Emotion analysis on transcript
-        EmotionMetadata emotion = emotionAnalysisService.analyze(transcript);
+        // 2. Emotion analysis: text-based (on the transcript) + audio-based (acoustic
+        //    arousal from the actual voice signal — req. #2), fused into one profile.
+        EmotionMetadata textEmotion = emotionAnalysisService.analyze(transcript);
+        AudioEmotionProfileDTO audioProfile = frames == null ? null
+                : acousticEmotionAnalysisService.analyze(acousticFeatureExtractor.summarize(frames));
+        EmotionMetadata emotion = multimodalEmotionFusionService.fuse(textEmotion, audioProfile);
 
-        // 3. Retrieve → Fuse → Rerank
+        // 3. Retrieve → Fuse → Rerank (Hindi-only)
         MusicRecommendationService.RankingResult result = recommendationService.recommend(emotion);
 
         // 4. Persist
@@ -134,6 +159,7 @@ public class RecommendationController {
                 .emotion(emotion)
                 .recommendations(result.tracks())
                 .conversationalMessage(result.conversationalMessage())
+                .warnings(insufficientResultsWarning(result))
                 .sessionId(sessionId)
                 .timestamp(System.currentTimeMillis())
                 .build();
@@ -189,6 +215,41 @@ public class RecommendationController {
 
         List<TrackDTO> dtos = tracks.stream().map(TrackDTO::from).collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
+    }
+
+    // ── Audio-based emotion helper ──────────────────────────────────
+
+    /** Decodes the voice recording and computes its acoustic arousal profile; degrades to null on failure. */
+    /**
+     * Decodes the upload to acoustic frames, rejecting it (400) if it is not decodable audio or
+     * contains no voiced speech. Returns null only when ffmpeg itself is unavailable, in which
+     * case the request continues with text-only analysis, as before.
+     */
+    private List<AcousticFeatureExtractor.Frame> decodeAndValidate(MultipartFile audioFile) {
+        List<AcousticFeatureExtractor.Frame> frames;
+        try {
+            short[] pcm = audioTranscodingService.toPcm16Mono16k(audioFile.getBytes(), audioFile.getOriginalFilename());
+            frames = acousticFeatureExtractor.analyze(pcm);
+        } catch (AudioTranscodingService.UndecodableAudioException ex) {
+            log.warn("Rejected voice upload that could not be decoded: {}", ex.getMessage());
+            throw new InvalidAudioException("The uploaded file could not be read as audio. Please upload a WAV, MP3, M4A or WebM recording.");
+        } catch (Exception ex) {
+            log.warn("Acoustic emotion analysis unavailable for this voice recording: {}", ex.getMessage());
+            return null;
+        }
+        if (!AcousticFeatureExtractor.containsSpeech(frames)) {
+            throw new InvalidAudioException("No speech was detected in the recording. Please check the microphone and try again.");
+        }
+        return frames;
+    }
+
+    // ── Hindi-only warning helper ────────────────────────────────────
+
+    private List<String> insufficientResultsWarning(MusicRecommendationService.RankingResult result) {
+        if (result.tracks().size() >= topNResults) return List.of();
+        return List.of("Only " + result.tracks().size() + " verified Hindi-language track(s) matched this "
+                + "emotional profile — the catalogue needs more eligible Hindi tracks to reach " + topNResults
+                + ". Showing all verified matches found; no non-Hindi track was substituted.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────

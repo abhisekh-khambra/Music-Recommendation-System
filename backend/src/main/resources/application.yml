@@ -81,6 +81,14 @@ app:
     rerank-pool-size: 15            # Shortlist size after the lightweight reranker, before the LLM
     top-n-results: 10               # Final recommendations count
     fallback-to-keyword: true       # Use keyword fallback if LLM fails
+  audio:
+    # ffmpeg is required to decode uploaded audio (WebM/MP3/M4A/...) into raw PCM for the
+    # acoustic (pitch/energy) emotion + speaker-diarization analysis — see com.musicrec.audio.
+    # Install it and ensure it's on PATH, or point this at a specific binary. Voice/conversation
+    # transcription itself (Groq Whisper) does NOT depend on this — only the acoustic analysis does;
+    # everything degrades gracefully to text-only analysis if ffmpeg isn't available.
+    ffmpeg-path: ${FFMPEG_PATH:C:/Users/LENOVO/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe}
+    transcode-timeout-seconds: 30
 
 # ── Logging ─────────────────────────────────────────────────────
 logging:
